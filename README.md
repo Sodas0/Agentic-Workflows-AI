@@ -34,7 +34,7 @@ The primary objective of this repository is to:
 ## 📂 **Repository Structure**
 
 ```plaintext
-|-- experiments/          # Code files for LangChain and LangGraph experimentation
+|-- langgraphtest/          # Code files for LangChain and LangGraph experimentation
 |-- data/                 # Sample datasets and psychology-related content
 |-- docs/                 # Documentation and learning notes
 |-- README.md             # Repository overview (this file)
