@@ -35,6 +35,7 @@ The primary objective of this repository is to:
 
 ```plaintext
 |-- langgraphtest/          # Code files for LangChain and LangGraph experimentation
-|-- data/                 # Sample datasets and psychology-related content
-|-- docs/                 # Documentation and learning notes
-|-- README.md             # Repository overview (this file)
+|-- modular/                # An example of a modular single-agent graph based workflow with two example tools that are easily configurable.
+|-- data/                   # Sample datasets and psychology-related content (should have the pdf files of our textbook)
+|-- docs/                   # Documentation and learning notes (currently empty)
+|-- README.md               # Repository overview (this file)
