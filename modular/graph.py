@@ -2,7 +2,6 @@ from langgraph.graph import StateGraph, START, END
 from tools import BasicToolNode, get_tools
 from state import State
 
-
 def route_tools(state: State):
     """
     Determines the next node in the graph based on the presence of tool calls.

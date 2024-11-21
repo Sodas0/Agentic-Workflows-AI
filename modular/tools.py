@@ -1,8 +1,8 @@
 import json
 from langchain_core.messages import ToolMessage
 from langchain_community.tools.tavily_search import TavilySearchResults
-
 from langchain_community.tools import tool
+from retrievertool import textbook_retriever_tool
 
 
 
@@ -44,14 +44,34 @@ class BasicToolNode:
 # We can also add new agents with their own tools, as long as we route them properly in the workflow.
 # I will create a diagram of a workflow to show how multi-agents can interact. (probably over the weekend)
 
+
+
+
+
+
+@tool
+def add(a: int, b: int) -> int:
+    """Use this tool to add two numbers."""
+    return a + b
+
+
+@tool
+def magic_function(input: int) -> int:
+    """Applies a magic function to an input."""
+    return input + 2
+    
+
+
+    
 def get_tools():
     """
     Returns a list of tools for the chatbot.
     """
-    @tool
-    def add(a: int, b: int) -> int:
-        """Use this tool to add two numbers."""
-        return a + b
+    
+    
         
-    search_tool = TavilySearchResults(max_results=1)
-    return [search_tool, add]
+        
+    textbook_retriever = textbook_retriever_tool
+    tools = [textbook_retriever, add, magic_function]
+    return tools
+
