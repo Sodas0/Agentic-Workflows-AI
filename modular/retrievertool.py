@@ -107,12 +107,13 @@ def get_parent_docs():
             file_path = f"../data/chapter{i}.pdf"
             loader = PyPDFLoader(file_path)
             full_chapter = loader.load()
-            parent_docs.append(
-                Document(
-                    page_content=full_chapter[0].page_content,
-                    metadata={"chapter": f"Chapter {i}"}
+            for document in full_chapter:
+                parent_docs.append(
+                    Document(
+                        page_content=document.page_content,
+                        metadata={"chapter": f"Chapter {i}"}
+                    )
                 )
-            )
 
         save_parent_docs(parent_docs, pdoc_filepath)
         print("Parent documents saved")
@@ -153,7 +154,7 @@ retriever = ParentDocumentRetriever(
     child_splitter=child_splitter,
     parent_splitter=parent_splitter,
     search_type="mmr",
-    search_kwargs={"k": 3},
+    search_kwargs={"k": 5},
 )
 retriever.add_documents(parent_docs)
 
