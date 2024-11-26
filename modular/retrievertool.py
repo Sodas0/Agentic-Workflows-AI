@@ -2,19 +2,23 @@ import os
 import json
 
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_chroma import Chroma
+# from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.tools.retriever import create_retriever_tool
-from langchain.retrievers import ParentDocumentRetriever
-from langchain.storage import InMemoryStore
+from langchain.retrievers import ParentDocumentRetriever, MultiVectorRetriever
+from langchain.storage import InMemoryStore, InMemoryByteStore, LocalFileStore
+from langchain.storage._lc_store import create_kv_docstore
+from langchain.agents import tool
 
 from langchain_core.documents import Document
 
 from uuid import uuid4
 from PyPDF2 import PdfReader, PdfWriter
 
-# Might make a class later
+from langchain_qdrant import QdrantVectorStore
+from qdrant_client import QdrantClient
+from qdrant_client.http.models import Distance, VectorParams
 
 NUM_CHAPS = 16
 # db_filepath = "Data/psychology.db"
@@ -29,6 +33,7 @@ class CustomChildSplitter(RecursiveCharacterTextSplitter):
 
             chapter_name = doc.metadata["chapter"]
             for chunk in chunks:
+                # print(chunk)
                 child_docs.append(
                     Document(
                         page_content= f"{chapter_name}\n{chunk}",
@@ -126,37 +131,82 @@ def get_parent_docs():
 
     return parent_docs
 
-parent_docs = get_parent_docs()
-        
-# Create child document splitter
-child_splitter = CustomChildSplitter(
-    chunk_size=500,
-)
+def load_retriever():
+    print("Loading retriever...")
+    file_store_path = os.path.abspath("../data/retriever")
+    fs = LocalFileStore(file_store_path)
+    store = create_kv_docstore(fs)
+
+    vectorstore = QdrantVectorStore.from_existing_collection(
+        embedding=OpenAIEmbeddings(model="text-embedding-3-large"),
+        collection_name="child_vectorstore",
+        path="../data/qdrantdb",
+    )
+
+    retriever = MultiVectorRetriever(
+        vectorstore=vectorstore,
+        docstore=store,
+        search_type="similarity",
+        search_kwargs={"k": 10},
+    )
     
-# Defines the parent splitter
-parent_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=2000,
-)
+    return retriever
 
-# Storage layer for the parent documents
-store = InMemoryStore()
+def generate_retriever():
+    file_store_path = os.path.abspath("../data/retriever")
 
-# Create the vectorstore
-child_vectorstore = Chroma(
-    embedding_function=OpenAIEmbeddings(model="text-embedding-ada-002"),
-    collection_name="wholeTextbookPsych"
-)
+    if os.path.exists(file_store_path):
+        retriever = load_retriever()
+        return retriever
 
-# Initialize the Parent Document Retriever
-retriever = ParentDocumentRetriever(
-    vectorstore=child_vectorstore,
-    docstore=store,
-    child_splitter=child_splitter,
-    parent_splitter=parent_splitter,
-    search_type="mmr",
-    search_kwargs={"k": 3},
-)
-retriever.add_documents(parent_docs)
+    print("Generating retriever...")
+    parent_docs = get_parent_docs()
+            
+    # Create child document splitter
+    child_splitter = CustomChildSplitter(
+        chunk_size=300,
+    )
+        
+    # Defines the parent splitter
+    parent_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=2000,
+    )
+
+    # Storage layer for the parent documents
+    # store = InMemoryStore()
+    fs = LocalFileStore(file_store_path)
+    store = create_kv_docstore(fs)
+
+    # Qdrant vetorstore, persistence testing
+    client = QdrantClient(
+        path="../data/qdrantdb",
+    )
+
+    client.create_collection(
+        collection_name="child_vectorstore",
+        vectors_config=VectorParams(size=3072, distance=Distance.COSINE),
+    )
+
+    child_vectorstore = QdrantVectorStore(
+        client=client,
+        collection_name="child_vectorstore",
+        embedding=OpenAIEmbeddings(model="text-embedding-3-large"),
+    )
+
+    # Initialize the Parent Document Retriever
+    retriever = ParentDocumentRetriever(
+        vectorstore=child_vectorstore,
+        docstore=store,
+        child_splitter=child_splitter,
+        parent_splitter=parent_splitter,
+        search_type="similarity",
+        search_kwargs={"k": 10},
+    )
+    retriever.add_documents(parent_docs)
+
+    return retriever
+
+retriever = generate_retriever()
 
 print("Parent Document Retriever initialized")
 
@@ -165,30 +215,4 @@ textbook_retriever_tool = create_retriever_tool(
     retriever,
     "retrieve_textbook_content",
     "Search and return information from the psychology textbook."
-)
-
-store_sum = InMemoryStore()
-
-child_sum_vectorstore = Chroma(
-    embedding_function=OpenAIEmbeddings(),
-    collection_name="wholeTextbookPsychSum"
-)
-
-sum_retriever = ParentDocumentRetriever(
-    vectorstore=child_sum_vectorstore,
-    docstore=store_sum,
-    child_splitter=child_splitter,
-    parent_splitter=parent_splitter,
-    search_type="similarity",
-    search_kwargs={"k": 10},
-)
-sum_retriever.add_documents(parent_docs)
-
-print("Summary Document Retriever initialized")
-
-# Create a tool for the summary retriever
-summary_retriever_tool = create_retriever_tool(
-    sum_retriever,
-    "retrieve_textbook_summary",
-    "Search and return a summary of the psychology textbook."
 )
