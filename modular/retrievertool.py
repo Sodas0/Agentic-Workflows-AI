@@ -21,7 +21,6 @@ from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, VectorParams
 
 NUM_CHAPS = 16
-# db_filepath = "Data/psychology.db"
 pdoc_filepath = "../data/parent_docs.json"
 
 # Customized child splitter that adds the chapter number

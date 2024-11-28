@@ -2,7 +2,7 @@ import json
 from langchain_core.messages import ToolMessage
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_community.tools import tool
-from retrievertool import textbook_retriever_tool, summary_retriever_tool
+from retrievertool import textbook_retriever_tool
 
 
 
@@ -72,7 +72,6 @@ def get_tools():
         
         
     textbook_retriever = textbook_retriever_tool
-    sum_retriever = summary_retriever_tool
-    tools = [textbook_retriever, sum_retriever,add, magic_function]
+    tools = [textbook_retriever,add, magic_function]
     return tools
 
