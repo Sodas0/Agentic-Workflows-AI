@@ -1,6 +1,12 @@
 from langgraph.graph import StateGraph, START, END
 from tools import BasicToolNode, get_tools
 from state import State
+from langchain_core.messages import SystemMessage
+from typing import Annotated
+
+systemPrompt = SystemMessage("You are a helpful psychology tutor whose goal is to help students understand the concepts of psychology.")
+
+
 
 def route_tools(state: State):
     """
@@ -18,6 +24,8 @@ def route_tools(state: State):
     return "__end__"
 
 
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.prebuilt import create_react_agent
 def build_graph(llm):
     """
     Builds and compiles the chatbot's state graph.
@@ -29,22 +37,31 @@ def build_graph(llm):
     llm_with_tool = llm.bind_tools(tools)
 
     # Add chatbot node
-    def chatbot(state: State):
-        return {"messages": [llm_with_tool.invoke(state["messages"])]}
+    def supervisor(state: State):
+        return {"messages": [llm_with_tool.invoke([systemPrompt] + state["messages"])]}
+    
+    memory = MemorySaver()
+    
+    graph = create_react_agent(llm, tools, checkpointer=memory)
+    
+    ##### NODES #####
+    
+    # tool_node = BasicToolNode(tools=tools)
+    # graph_builder.add_node("tools", tool_node)
+    # graph_builder.add_node("supervisor", supervisor)
 
-    # Add nodes and edges to the graph
-    tool_node = BasicToolNode(tools=tools)
-    graph_builder.add_node("tools", tool_node)
-    graph_builder.add_node("chatbot", chatbot)
 
-    graph_builder.add_edge(START, "chatbot")
-    graph_builder.add_edge("tools", "chatbot")
+    # graph_builder.add_edge(START, "supervisor")
+    # graph_builder.add_edge("tools", "supervisor")
 
-    # Add conditional edges
-    graph_builder.add_conditional_edges(
-        "chatbot",  # Node to make the decision
-        route_tools,  # Routing function
-        {"tools": "tools", "__end__": "__end__"},
-    )
 
-    return graph_builder.compile()
+    # #### EDGES ####
+    # # Add conditional edges
+    # graph_builder.add_conditional_edges(
+    #     "supervisor",  # Node to make the decision
+    #     route_tools,  # Routing function
+    #     {"tools": "tools", "__end__": "__end__"},
+    # )
+
+    #return graph_builder.compile()
+    return graph
