@@ -16,6 +16,19 @@ from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, VectorParams
 
+# 
+# pdoc_filepath: path to json file containing parent documents
+# pdf_filepath: path to pdf file
+# pdoc_output_dir: path to output directory for parent documents
+# page_ranges: list of page ranges for each chapter
+# starting_chapter: starting chapter number(1 by default, should be set to 6 if starting from chapter 6)
+# file_store_path: path to file store
+# vectorstore_path: path to vectorstore
+# search_type: search type(similarity is default, refer to this link for more info https://python.langchain.com/docs/how_to/vectorstore_retriever/)
+# search_kwargs: search kwargs(3 is sufficient for most use cases, 10 should be used for summarization)
+# collection_name: collection name
+# 
+
 class retrieverConfig:
     def __init__(
             self, pdoc_filepath, pdf_filepath, pdoc_output_dir,
