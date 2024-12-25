@@ -2,8 +2,8 @@ from langchain_openai import ChatOpenAI
 from graph import build_graph
 #from generateGraphPNG import generate_graph_png
 #from serve_pdf import interactive_pdf_reader
-import fitz  # PyMuPDF
-import re
+#import fitz  # PyMuPDF
+#import re
 
 
 
