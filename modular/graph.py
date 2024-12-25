@@ -42,6 +42,10 @@ def build_graph(llm):
     
     memory = MemorySaver()
     
+    # This agent is the "supervisor" and has access to the tools
+    # Previously, we defined nodes and edges, but using one such agent with capacity for memory is simpler 
+    # both in terms of runtime, and in terms of code complexity.
+    
     graph = create_react_agent(llm, tools, checkpointer=memory)
     
     ##### NODES #####
