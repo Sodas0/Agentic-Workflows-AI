@@ -4,6 +4,7 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_community.tools import tool
 from retrievertool import textbook_retriever_tool
 
+
 class BasicToolNode:
     """
     A node that processes and executes tool requests embedded in the last AI message.
@@ -40,7 +41,6 @@ class BasicToolNode:
 
 # Easily modify this list of tools to add or remove tools from the single agent.
 # We can also add new agents with their own tools, as long as we route them properly in the workflow.
-# I will create a diagram of a workflow to show how multi-agents can interact. (probably over the weekend)
 
 @tool
 def add(a: int, b: int) -> int:
@@ -51,10 +51,14 @@ def add(a: int, b: int) -> int:
 
 from langchain_openai import ChatOpenAI
 
+
+#TODO:
+  # 1. figure out the correct return type for this tool to effectively check if a message is a question
+
 @tool
 def is_question(message: str) -> str:
     """Determines whether a message is a question."""
-    tempLLM = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
+    tempLLM = ChatOpenAI(model="gpt-4o", temperature=0)
     messages = [
     (
         "system",
@@ -62,7 +66,10 @@ def is_question(message: str) -> str:
     ),
     ("human", {message}),
 ]
-    return tempLLM.invoke(messages)
+    return tempLLM.invoke(messages) #need to return some sort of object here
+
+
+
 
 
 textbook_retriever = textbook_retriever_tool
@@ -74,6 +81,6 @@ def get_tools():
     Returns a list of tools for the chatbot.
     """
 
-    tools = [textbook_retriever, add, is_question]
+    tools = [textbook_retriever] # add is_question tool here, along with other tools yet to be designed
     return tools
 
