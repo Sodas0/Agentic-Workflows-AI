@@ -262,6 +262,21 @@ class retriever:
 
         return retriever
 
+def printBookmarksPageNumbers(pdf):
+    def reviewAndPrintBookmarks(bookmarks, indent=0):
+        for b in bookmarks:
+            if type(b) == list:
+                reviewAndPrintBookmarks(b, indent + 4)
+                continue
+            pg_num = pdf.get_destination_page_number(b) + 1  # page count starts from 0
+            print("%s%s: Page %s" % (" " * indent, b.title, pg_num))
+
+    reviewAndPrintBookmarks(pdf.outline)
+
+with open('../data/wholeTextbookPsych.pdf', "rb") as f:
+    pdf = PdfReader(f)
+    printBookmarksPageNumbers(pdf)
+
 #
 # Retriever Configs
 #
