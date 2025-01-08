@@ -81,6 +81,7 @@ class retriever:
                         )
                     )
             return child_docs
+
         
     class CustomParentSplitter(RecursiveCharacterTextSplitter):
         def split_documents(self, documents):
@@ -102,6 +103,7 @@ class retriever:
                 chunk_count += len(chunks)
 
             return parent_docs
+
     
     # Splits the PDF into chapters, given a list of page ranges    
     def _split_pdf(self, input_pdf, page_ranges, output_dir):
@@ -167,11 +169,13 @@ class retriever:
                 file_path = f"../data/chapter{i}.pdf"
                 loader = PyPDFLoader(file_path)
                 full_chapter = loader.load()
+
                 for page_num,document in enumerate(full_chapter,start=1):
                     parent_docs.append(
                         Document(
                             page_content=document.page_content,
                             metadata={"chapter": f"Chapter {i}", "page": page_num}
+
                         )
                     )
 
@@ -222,7 +226,9 @@ class retriever:
         )
             
         # Defines the parent splitter
+
         parent_splitter = self.CustomParentSplitter(
+
             chunk_size=2000,
         )
 
@@ -262,6 +268,7 @@ class retriever:
 
         return retriever
 
+
 def printBookmarksPageNumbers(pdf):
     def reviewAndPrintBookmarks(bookmarks, indent=0):
         for b in bookmarks:
@@ -276,6 +283,7 @@ def printBookmarksPageNumbers(pdf):
 with open('../data/wholeTextbookPsych.pdf', "rb") as f:
     pdf = PdfReader(f)
     printBookmarksPageNumbers(pdf)
+
 
 #
 # Retriever Configs
@@ -321,12 +329,29 @@ chapter6_config = retrieverConfig(
 # Tool Creation
 #
 
+
 # textbook_retriever = retriever(textbook_config).generate_retriever()
 chapter6_retriever = retriever(chapter6_config).generate_retriever()
 
+textbook_retriever = retriever(textbook_config).generate_retriever()
+#chapter6_retriever = retriever(chapter6_config).generate_retriever()
+
+
 # Create a tool for the textbook retriever
+# textbook_retriever_tool = create_retriever_tool(
+#     chapter6_retriever,
+#     "retrieve_textbook_content",
+#     "Search and return information from the psychology textbook."
+# )
+
+
+# Idea for TODO:
+    # figure out how to connect page numbers and section numbers to the content. 
+    # for example, a sourced chunk could look like : <content>:<chapter>:<section>:<page>:<chunk#>
+    # this would greatly help in organizing the content and making it easier to retrieve information
+    # it has more to do with the generation of the parent documents than the retriever tool itself
 textbook_retriever_tool = create_retriever_tool(
-    chapter6_retriever,
+    textbook_retriever,
     "retrieve_textbook_content",
     "Search and return information from the psychology textbook."
 )

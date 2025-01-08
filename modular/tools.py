@@ -5,7 +5,6 @@ from langchain_community.tools import tool
 from retrievertool import textbook_retriever_tool
 
 
-
 class BasicToolNode:
     """
     A node that processes and executes tool requests embedded in the last AI message.
@@ -42,12 +41,6 @@ class BasicToolNode:
 
 # Easily modify this list of tools to add or remove tools from the single agent.
 # We can also add new agents with their own tools, as long as we route them properly in the workflow.
-# I will create a diagram of a workflow to show how multi-agents can interact. (probably over the weekend)
-
-
-
-
-
 
 @tool
 def add(a: int, b: int) -> int:
@@ -55,11 +48,31 @@ def add(a: int, b: int) -> int:
     return a + b
 
 
+
+from langchain_openai import ChatOpenAI
+
+
+#TODO:
+  # 1. figure out the correct return type for this tool to effectively check if a message is a question
+
 @tool
-def magic_function(input: int) -> int:
-    """Applies a magic function to an input."""
-    return input + 2
-    
+def is_question(message: str) -> str:
+    """Determines whether a message is a question."""
+    tempLLM = ChatOpenAI(model="gpt-4o", temperature=0)
+    messages = [
+    (
+        "system",
+        "Your task is to determine whether the given sentence is a question or not. Return 'yes' if it is, and 'no' if it isn't.",
+    ),
+    ("human", {message}),
+]
+    return tempLLM.invoke(messages) #need to return some sort of object here
+
+
+
+
+
+textbook_retriever = textbook_retriever_tool
 
 
     
@@ -67,11 +80,10 @@ def get_tools():
     """
     Returns a list of tools for the chatbot.
     """
+               
     
-    
-        
-        
     textbook_retriever = textbook_retriever_tool
-    tools = [textbook_retriever,add, magic_function]
+    
+    tools = [textbook_retriever] # add is_question tool here, along with other tools yet to be designed
     return tools
 

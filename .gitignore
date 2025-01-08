@@ -1,6 +1,11 @@
+
 modular/.env
 data/qdrantdb
 data/retriever
 data/parent_docs.json
 modular/__pycache__
-/data
+__pycache__/
+.env
+*.pdf
+data/
+
