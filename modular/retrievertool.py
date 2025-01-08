@@ -81,6 +81,29 @@ class retriever:
                         )
                     )
             return child_docs
+
+        
+    class CustomParentSplitter(RecursiveCharacterTextSplitter):
+        def split_documents(self, documents):
+            parent_docs=[]
+            chunk_count = 0
+            for doc in documents:
+                chunks = self.split_text(doc.page_content)
+
+                for chunk_num, chunk in enumerate(chunks, start=1):
+                    doc.metadata["chunk_num"] = chunk_num + chunk_count
+                    parent_docs.append(
+                        Document(
+                            page_content=chunk,
+                            metadata=doc.metadata
+                        )
+                    )
+                # print(parent_docs[-1].metadata)
+            
+                chunk_count += len(chunks)
+
+            return parent_docs
+
     
     # Splits the PDF into chapters, given a list of page ranges    
     def _split_pdf(self, input_pdf, page_ranges, output_dir):
@@ -146,11 +169,13 @@ class retriever:
                 file_path = f"../data/chapter{i}.pdf"
                 loader = PyPDFLoader(file_path)
                 full_chapter = loader.load()
-                for document in full_chapter:
+
+                for page_num,document in enumerate(full_chapter,start=1):
                     parent_docs.append(
                         Document(
                             page_content=document.page_content,
-                            metadata={"chapter": f"Chapter {i}"}
+                            metadata={"chapter": f"Chapter {i}", "page": page_num}
+
                         )
                     )
 
@@ -201,7 +226,9 @@ class retriever:
         )
             
         # Defines the parent splitter
-        parent_splitter = RecursiveCharacterTextSplitter(
+
+        parent_splitter = self.CustomParentSplitter(
+
             chunk_size=2000,
         )
 
@@ -240,6 +267,23 @@ class retriever:
         print("Parent Document Retriever initialized")
 
         return retriever
+
+
+def printBookmarksPageNumbers(pdf):
+    def reviewAndPrintBookmarks(bookmarks, indent=0):
+        for b in bookmarks:
+            if type(b) == list:
+                reviewAndPrintBookmarks(b, indent + 4)
+                continue
+            pg_num = pdf.get_destination_page_number(b) + 1  # page count starts from 0
+            print("%s%s: Page %s" % (" " * indent, b.title, pg_num))
+
+    reviewAndPrintBookmarks(pdf.outline)
+
+with open('../data/wholeTextbookPsych.pdf', "rb") as f:
+    pdf = PdfReader(f)
+    printBookmarksPageNumbers(pdf)
+
 
 #
 # Retriever Configs
@@ -285,8 +329,13 @@ chapter6_config = retrieverConfig(
 # Tool Creation
 #
 
+
+# textbook_retriever = retriever(textbook_config).generate_retriever()
+chapter6_retriever = retriever(chapter6_config).generate_retriever()
+
 textbook_retriever = retriever(textbook_config).generate_retriever()
 #chapter6_retriever = retriever(chapter6_config).generate_retriever()
+
 
 # Create a tool for the textbook retriever
 # textbook_retriever_tool = create_retriever_tool(

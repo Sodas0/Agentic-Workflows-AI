@@ -80,7 +80,10 @@ def get_tools():
     """
     Returns a list of tools for the chatbot.
     """
-
+               
+    
+    textbook_retriever = textbook_retriever_tool
+    
     tools = [textbook_retriever] # add is_question tool here, along with other tools yet to be designed
     return tools
 

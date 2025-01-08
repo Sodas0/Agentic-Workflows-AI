@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.tools.retriever import create_retriever_tool
@@ -20,12 +20,10 @@ from langgraph.prebuilt import ToolNode
 
 # Load environment variables
 load_dotenv()
-def _set_env(key: str):
-    if key not in os.environ:
-        os.environ[key] = getpass.getpass(f"{key}:")
 
+openai_api_key = os.getenv("OPENAI_API_KEY")
 
-_set_env("OPENAI_API_KEY")
+os.environ["OPENAI_API_KEY"] = openai_api_key
 
 # Indexing the textbook PDF
 db_filepath = "../data/makinMeMad.db"
@@ -38,7 +36,12 @@ if os.path.exists(db_filepath):
     )
     print("Database exists, loading from filepath.")
 else:
-    loader = PyPDFLoader("../data/wholeTextbookPsych.pdf")
+    # Generates filepath
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    file_name = "wholeTextbookPsych.pdf"
+    file_path = os.path.join(script_dir, "../data", file_name)
+
+    loader = PyPDFLoader(file_path)
     docs = loader.load()
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000, chunk_overlap=200, add_start_index=True
