@@ -13,7 +13,7 @@ from graph import build_graph
 #filename = "concept.png"
 
 config = {"configurable": {"thread_id": "🐭"}}
-
+load_dotenv()
 
 def main():
     """
