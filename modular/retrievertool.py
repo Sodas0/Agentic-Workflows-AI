@@ -16,6 +16,23 @@ from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, VectorParams
 
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+env_path = os.path.join(os.path.dirname(__file__), ".env")
+if not load_dotenv(env_path):
+    print(f"Failed to load .env file from {env_path}")
+else:
+    print(f".env file loaded successfully from {env_path}")
+
+# Retrieve the API key
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    raise EnvironmentError("OPENAI_API_KEY not set in environment variables.")
+
+os.environ["OPENAI_API_KEY"] = api_key  # Ensure it's in os.environ for libraries that require it
+
 # 
 # pdoc_filepath: path to json file containing parent documents
 # pdf_filepath: path to pdf file
@@ -33,7 +50,7 @@ class retrieverConfig:
     def __init__(
             self, pdoc_filepath, pdf_filepath, pdoc_output_dir,
             page_ranges, starting_chapter, file_store_path, 
-            vectorstore_path, search_type, search_kwargs,
+            cluster_url, qdrant_key, search_type, search_kwargs,
             collection_name
             
             ):
@@ -43,7 +60,8 @@ class retrieverConfig:
         self.page_ranges = page_ranges
         self.starting_chapter = starting_chapter
         self.file_store_path = file_store_path
-        self.vectorstore_path = vectorstore_path
+        self.cluster_url = cluster_url
+        self.qdrant_key = qdrant_key
         self.search_type = search_type
         self.search_kwargs = search_kwargs
         self.collection_name = collection_name
@@ -58,7 +76,8 @@ class retriever:
         self.page_ranges = config.page_ranges
         self.starting_chapter = config.starting_chapter
         self.file_store_path = config.file_store_path
-        self.vectorstore_path = config.vectorstore_path
+        self.cluster_url = config.cluster_url
+        self.qdrant_key = config.qdrant_key
         self.search_type = config.search_type
         self.search_kwargs = config.search_kwargs
         self.collection_name = config.collection_name
@@ -200,7 +219,8 @@ class retriever:
         vectorstore = QdrantVectorStore.from_existing_collection(
             embedding=OpenAIEmbeddings(model="text-embedding-3-large"),
             collection_name=self.collection_name,
-            path=self.vectorstore_path,
+            url=self.cluster_url,
+            api_key=self.qdrant_key,
         )
 
         retriever = MultiVectorRetriever(
@@ -239,50 +259,88 @@ class retriever:
 
         # Qdrant vetorstore, persistence testing
         client = QdrantClient(
-            path=self.vectorstore_path,
+            url=self.cluster_url,
+            api_key=self.qdrant_key,
         )
 
-        client.create_collection(
-            collection_name=self.collection_name,
-            vectors_config=VectorParams(size=3072, distance=Distance.COSINE),
-        )
+        if not client.collection_exists(collection_name=self.collection_name):
+            print(f"Collection {self.collection_name} does not exist, creating...")
 
-        child_vectorstore = QdrantVectorStore(
-            client=client,
-            collection_name=self.collection_name,
-            embedding=OpenAIEmbeddings(model="text-embedding-3-large"),
-        )
+            client.create_collection(
+                collection_name=self.collection_name,
+                vectors_config=VectorParams(size=3072, distance=Distance.COSINE),
+            )
 
-        # Initialize the Parent Document Retriever
-        retriever = ParentDocumentRetriever(
-            vectorstore=child_vectorstore,
-            docstore=store,
-            child_splitter=child_splitter,
-            parent_splitter=parent_splitter,
-            search_type=self.search_type,
-            search_kwargs=self.search_kwargs,
-        )
-        retriever.add_documents(parent_docs)
+            child_vectorstore = QdrantVectorStore(
+                client=client,
+                collection_name=self.collection_name,
+                embedding=OpenAIEmbeddings(model="text-embedding-3-large"),
+            )
+
+            # Initialize the Parent Document Retriever
+            retriever = ParentDocumentRetriever(
+                vectorstore=child_vectorstore,
+                docstore=store,
+                child_splitter=child_splitter,
+                parent_splitter=parent_splitter,
+                search_type=self.search_type,
+                search_kwargs=self.search_kwargs,
+            )
+            retriever.add_documents(parent_docs)
+
+        else:
+            print(f"Collection {self.collection_name} exists, loading...")
+            child_vectorstore = QdrantVectorStore.from_existing_collection(
+                embedding=OpenAIEmbeddings(model="text-embedding-3-large"),
+                collection_name=self.collection_name,
+                url=self.cluster_url,
+                api_key=self.qdrant_key,
+            )
+
+            # Get documents from vectorstore
+            scroll_result = client.scroll(collection_name=self.collection_name)[0]
+
+            retreived_docs = []
+
+            for id,point in enumerate(scroll_result):
+                page_content = point.payload["page_content"]
+                metadata = point.payload["metadata"]
+                retreived_docs.append((f"doc{id}", Document(page_content=page_content, metadata=metadata)))
+
+            print(f"Loaded {len(retreived_docs)} documents from vectorstore")
+
+            # Manually adds the documents to the store
+            store.mset(retreived_docs)
+
+            # Initialize the Parent Document Retriever
+            retriever = ParentDocumentRetriever(
+                vectorstore=child_vectorstore,
+                docstore=store,
+                child_splitter=child_splitter,
+                parent_splitter=parent_splitter,
+                search_type=self.search_type,
+                search_kwargs=self.search_kwargs,
+            )
 
         print("Parent Document Retriever initialized")
 
         return retriever
 
 
-def printBookmarksPageNumbers(pdf):
-    def reviewAndPrintBookmarks(bookmarks, indent=0):
-        for b in bookmarks:
-            if type(b) == list:
-                reviewAndPrintBookmarks(b, indent + 4)
-                continue
-            pg_num = pdf.get_destination_page_number(b) + 1  # page count starts from 0
-            print("%s%s: Page %s" % (" " * indent, b.title, pg_num))
+# def printBookmarksPageNumbers(pdf):
+#     def reviewAndPrintBookmarks(bookmarks, indent=0):
+#         for b in bookmarks:
+#             if type(b) == list:
+#                 reviewAndPrintBookmarks(b, indent + 4)
+#                 continue
+#             pg_num = pdf.get_destination_page_number(b) + 1  # page count starts from 0
+#             print("%s%s: Page %s" % (" " * indent, b.title, pg_num))
 
-    reviewAndPrintBookmarks(pdf.outline)
+#     reviewAndPrintBookmarks(pdf.outline)
 
-with open('../data/wholeTextbookPsych.pdf', "rb") as f:
-    pdf = PdfReader(f)
-    printBookmarksPageNumbers(pdf)
+# with open('../data/wholeTextbookPsych.pdf', "rb") as f:
+#     pdf = PdfReader(f)
+#     printBookmarksPageNumbers(pdf)
 
 
 #
@@ -304,7 +362,8 @@ textbook_config = retrieverConfig(
     ],
     starting_chapter=1,
     file_store_path=ret_path,
-    vectorstore_path="../data/db1",
+    cluster_url="https://ca90235f-41e4-480d-8cb8-43246d130bb9.us-west-2-0.aws.cloud.qdrant.io:6333",
+    qdrant_key=os.getenv("QDRANT_KEY"),
     search_type="similarity",
     search_kwargs={"k": 10},
     collection_name="textbook_collection"
@@ -319,30 +378,27 @@ chapter6_config = retrieverConfig(
     ],
     starting_chapter=6,
     file_store_path=ret_path2,
-    vectorstore_path="../data/db2",
+    cluster_url="https://ca90235f-41e4-480d-8cb8-43246d130bb9.us-west-2-0.aws.cloud.qdrant.io:6333",
+    qdrant_key=os.getenv("QDRANT_KEY"),
     search_type="similarity",
     search_kwargs={"k": 3},
-    collection_name="chapter6_collection"
+    collection_name="chapter6_collection2"
 )
 
 #
 # Tool Creation
 #
 
-
 # textbook_retriever = retriever(textbook_config).generate_retriever()
 chapter6_retriever = retriever(chapter6_config).generate_retriever()
 
-textbook_retriever = retriever(textbook_config).generate_retriever()
-#chapter6_retriever = retriever(chapter6_config).generate_retriever()
-
 
 # Create a tool for the textbook retriever
-# textbook_retriever_tool = create_retriever_tool(
-#     chapter6_retriever,
-#     "retrieve_textbook_content",
-#     "Search and return information from the psychology textbook."
-# )
+textbook_retriever_tool = create_retriever_tool(
+    chapter6_retriever,
+    "retrieve_textbook_content",
+    "Search and return information from the psychology textbook."
+)
 
 
 # Idea for TODO:
@@ -350,8 +406,8 @@ textbook_retriever = retriever(textbook_config).generate_retriever()
     # for example, a sourced chunk could look like : <content>:<chapter>:<section>:<page>:<chunk#>
     # this would greatly help in organizing the content and making it easier to retrieve information
     # it has more to do with the generation of the parent documents than the retriever tool itself
-textbook_retriever_tool = create_retriever_tool(
-    textbook_retriever,
-    "retrieve_textbook_content",
-    "Search and return information from the psychology textbook."
-)
+# textbook_retriever_tool = create_retriever_tool(
+#     textbook_retriever,
+#     "retrieve_textbook_content",
+#     "Search and return information from the psychology textbook."
+# )

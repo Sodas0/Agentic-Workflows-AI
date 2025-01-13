@@ -13,25 +13,12 @@ from graph import build_graph
 #filename = "concept.png"
 
 config = {"configurable": {"thread_id": "🐭"}}
-
+load_dotenv()
 
 def main():
     """
     Main function to run the chatbot.
     """
-    # Load environment variables
-    env_path = os.path.join(os.path.dirname(__file__), ".env")
-    if not load_dotenv(env_path):
-        print(f"Failed to load .env file from {env_path}")
-    else:
-        print(f".env file loaded successfully from {env_path}")
-
-    # Retrieve the API key
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise EnvironmentError("OPENAI_API_KEY not set in environment variables.")
-
-    os.environ["OPENAI_API_KEY"] = api_key  # Ensure it's in os.environ for libraries that require it
 
     from graph import build_graph
     from generateGraphPNG import generate_graph_png
