@@ -375,7 +375,7 @@ chapter6_config = retrieverConfig(
     cluster_url="https://ca90235f-41e4-480d-8cb8-43246d130bb9.us-west-2-0.aws.cloud.qdrant.io:6333",
     qdrant_key=os.getenv("QDRANT_KEY"),
     search_type="similarity",
-    search_kwargs={"k": 3},
+    search_kwargs={"k": 10},
     collection_name="chapter6_collection2"
 )
 
