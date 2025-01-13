@@ -289,28 +289,20 @@ class retriever:
             retriever.add_documents(parent_docs)
 
         else:
-            print(f"Collection {self.collection_name} exists, loading...")
-            child_vectorstore = QdrantVectorStore.from_existing_collection(
-                embedding=OpenAIEmbeddings(model="text-embedding-3-large"),
+            print(f"Collection {self.collection_name} exists, reseting and recreating...")
+
+            client.delete_collection(collection_name=self.collection_name)
+
+            client.create_collection(
                 collection_name=self.collection_name,
-                url=self.cluster_url,
-                api_key=self.qdrant_key,
+                vectors_config=VectorParams(size=3072, distance=Distance.COSINE),
             )
 
-            # Get documents from vectorstore
-            scroll_result = client.scroll(collection_name=self.collection_name)[0]
-
-            retreived_docs = []
-
-            for id,point in enumerate(scroll_result):
-                page_content = point.payload["page_content"]
-                metadata = point.payload["metadata"]
-                retreived_docs.append((f"doc{id}", Document(page_content=page_content, metadata=metadata)))
-
-            print(f"Loaded {len(retreived_docs)} documents from vectorstore")
-
-            # Manually adds the documents to the store
-            store.mset(retreived_docs)
+            child_vectorstore = QdrantVectorStore(
+                client=client,
+                collection_name=self.collection_name,
+                embedding=OpenAIEmbeddings(model="text-embedding-3-large"),
+            )
 
             # Initialize the Parent Document Retriever
             retriever = ParentDocumentRetriever(
@@ -321,6 +313,8 @@ class retriever:
                 search_type=self.search_type,
                 search_kwargs=self.search_kwargs,
             )
+            retriever.add_documents(parent_docs)
+
 
         print("Parent Document Retriever initialized")
 
