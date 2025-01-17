@@ -266,55 +266,32 @@ class retriever:
         if not client.collection_exists(collection_name=self.collection_name):
             print(f"Collection {self.collection_name} does not exist, creating...")
 
-            client.create_collection(
-                collection_name=self.collection_name,
-                vectors_config=VectorParams(size=3072, distance=Distance.COSINE),
-            )
-
-            child_vectorstore = QdrantVectorStore(
-                client=client,
-                collection_name=self.collection_name,
-                embedding=OpenAIEmbeddings(model="text-embedding-3-large"),
-            )
-
-            # Initialize the Parent Document Retriever
-            retriever = ParentDocumentRetriever(
-                vectorstore=child_vectorstore,
-                docstore=store,
-                child_splitter=child_splitter,
-                parent_splitter=parent_splitter,
-                search_type=self.search_type,
-                search_kwargs=self.search_kwargs,
-            )
-            retriever.add_documents(parent_docs)
-
         else:
             print(f"Collection {self.collection_name} exists, reseting and recreating...")
 
             client.delete_collection(collection_name=self.collection_name)
 
-            client.create_collection(
-                collection_name=self.collection_name,
-                vectors_config=VectorParams(size=3072, distance=Distance.COSINE),
-            )
+        client.create_collection(
+            collection_name=self.collection_name,
+            vectors_config=VectorParams(size=3072, distance=Distance.COSINE),
+        )
 
-            child_vectorstore = QdrantVectorStore(
-                client=client,
-                collection_name=self.collection_name,
-                embedding=OpenAIEmbeddings(model="text-embedding-3-large"),
-            )
+        child_vectorstore = QdrantVectorStore(
+            client=client,
+            collection_name=self.collection_name,
+            embedding=OpenAIEmbeddings(model="text-embedding-3-large"),
+        )
 
-            # Initialize the Parent Document Retriever
-            retriever = ParentDocumentRetriever(
-                vectorstore=child_vectorstore,
-                docstore=store,
-                child_splitter=child_splitter,
-                parent_splitter=parent_splitter,
-                search_type=self.search_type,
-                search_kwargs=self.search_kwargs,
-            )
-            retriever.add_documents(parent_docs)
-
+        # Initialize the Parent Document Retriever
+        retriever = ParentDocumentRetriever(
+            vectorstore=child_vectorstore,
+            docstore=store,
+            child_splitter=child_splitter,
+            parent_splitter=parent_splitter,
+            search_type=self.search_type,
+            search_kwargs=self.search_kwargs,
+        )
+        retriever.add_documents(parent_docs)
 
         print("Parent Document Retriever initialized")
 
