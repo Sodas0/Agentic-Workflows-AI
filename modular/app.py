@@ -1,8 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, send_file
 from langchain_openai import ChatOpenAI
 from graph import build_graph
 from dotenv import load_dotenv
 import os
+import io
+from PyPDF2 import PdfReader, PdfWriter
 
 # Load environment variables
 load_dotenv()
@@ -13,6 +15,17 @@ app.secret_key = os.urandom(24)  # Required for session handling
 # Initialize LLM and graph
 llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)
 graph = build_graph(llm)
+
+# Textbook and page ranges
+PDF_PATH = "../data/wholeTextbookPsych.pdf"
+PAGE_RANGES = [
+        (19,46),(47,82),(83,120),(121,156),
+        (157,192),(193,224),(225,258),(259,290),
+        (291,332),(333,370),(371,410),(411,458),
+        (459,496),(497,548),(549,610),(611,644)
+    ] # Should be built by the textbook's table of contents
+
+
 
 @app.route("/", methods=["GET", "POST"])
 def home():
@@ -45,6 +58,36 @@ def chat():
 
     # Pass the full chat history to the template
     return render_template("chat.html", chat_history=session["chat_history"])
+
+# Serve chapter to user
+
+@app.route("/chapter_pdf/<int:chapter_number>", methods=["GET"])
+def serve_chapter_pdf(chapter_number):
+    chapter_number -= 1
+    try:
+        chapter_page_range = PAGE_RANGES[chapter_number]
+    except:
+        return f"Chapter {chapter_number} not found.", 404
+    
+    start_page, end_page = chapter_page_range
+    output_pdf = io.BytesIO()
+    reader = PdfReader(PDF_PATH)
+    writer = PdfWriter()
+
+    for i in range(start_page - 1, end_page):
+        writer.add_page(reader.pages[i])
+    
+    writer.write(output_pdf)
+    output_pdf.seek(0)
+
+    return send_file(output_pdf, as_attachment=False, mimetype="application/pdf")
+
+# Serve the HTML page with the iframe
+@app.route("/chapter/<int:chapter_number>", methods=["GET"])
+def serve_chapter(chapter_number):
+    return render_template("chapter_viewer.html", chapter_number=chapter_number)
+
+
 @app.route("/logout")
 def logout():
     session.clear()

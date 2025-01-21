@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter Viewer</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            display: flex;
+            font-family: 'Inter', Arial, sans-serif;
+            height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        .pdf-container {
+            width: 50%;
+            height: 100%;
+            overflow-y: auto;
+            position: relative;
+            background-color: #fff;
+        }
+
+        .chat-container {
+            width: 50%;
+            height: 100%;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+            border-left: 1px solid #ccc;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #chatbox-content {
+            flex-grow: 1;
+            padding: 10px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message {
+            background-color: #f1f1f1;
+            padding: 8px;
+            border-radius: 10px;
+            margin-bottom: 5px;
+            font-size: 14px;
+            word-wrap: break-word;
+        }
+
+        .message.user {
+            background-color: #0078D4;
+            color: white;
+            align-self: flex-end;
+        }
+
+        .message.assistant {
+            background-color: #E4E6EB;
+            color: black;
+            align-self: flex-start;
+        }
+
+        #chatbox-footer {
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #fff;
+            border-top: 1px solid #ccc;
+        }
+
+        #chatbox-input {
+            width: 80%;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+            outline: none;
+            min-height: 40px;
+            max-height: 120px;
+            resize: none;
+            overflow-y: auto;
+            transition: height 0.2s ease;
+            position: relative;
+        }
+
+        #send-message {
+            padding: 12px;
+            background-color: #000;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #send-message:after {
+            content: '→'; /* White arrow */
+            font-size: 18px;
+            color: white;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        #loading-gif {
+            position: absolute;
+            top: 30%;
+            left: -45%;
+            width: 100%;
+            height: 100%;
+            object-fit: contain; /* Ensure the GIF maintains its aspect ratio */
+            display: none; /* Hidden initially */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="pdf-container">
+            <iframe src="/chapter_pdf/{{chapter_number}}" id="pdf-frame"></iframe>
+        </div>
+
+        <div class="chat-container">
+            <div id="chatbox-content">
+                <div class="message assistant">
+                    <strong>Assistant:</strong> How can I assist you today?
+                </div>
+            </div>
+            <div id="chatbox-footer">
+                <textarea id="chatbox-input" placeholder="Type a message..."></textarea>
+                <button id="send-message"></button>
+                <img id="loading-gif" src="{{ url_for('static', filename='New_Piskel_4.gif') }}" alt="Loading..."/>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Send chat messages
+        document.getElementById("send-message").addEventListener("click", () => {
+            const input = document.getElementById("chatbox-input");
+            const content = document.getElementById("chatbox-content");
+            const loadingGif = document.getElementById("loading-gif");
+
+            // Hide the input and show the loading GIF inside the input field
+            input.value = ''; // Clear any text before showing the gif
+            loadingGif.style.display = "block";  // Show the GIF
+            input.style.position = "relative";  // Ensure the textarea is a positioning context
+
+            // Add user message
+            const userMessage = document.createElement("div");
+            userMessage.classList.add("message", "user");
+            userMessage.textContent = "Sending message...";  // Placeholder text while the GIF is shown
+            content.appendChild(userMessage);
+
+            // Scroll to the bottom of the chatbox
+            content.scrollTop = content.scrollHeight;
+
+            // Simulate a delay (replace with actual API call)
+            setTimeout(() => {
+                // Hide the GIF and show the input again
+                loadingGif.style.display = "none";  // Hide the GIF
+                input.style.display = "block";  // Show the textarea
+
+                // Add assistant's response
+                const assistantMessage = document.createElement("div");
+                assistantMessage.classList.add("message", "assistant");
+                assistantMessage.textContent = "Here is your response!";
+                content.appendChild(assistantMessage);
+
+                // Scroll to the bottom of the chatbox
+                content.scrollTop = content.scrollHeight;
+            }, 3000); // Simulate a 3-second delay (replace with actual API call)
+        });
+    </script>
+</body>
+</html>
