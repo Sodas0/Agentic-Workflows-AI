@@ -298,21 +298,69 @@ class retriever:
         return retriever
 
 
-# def printBookmarksPageNumbers(pdf):
-#     def reviewAndPrintBookmarks(bookmarks, indent=0):
-#         for b in bookmarks:
-#             if type(b) == list:
-#                 reviewAndPrintBookmarks(b, indent + 4)
-#                 continue
-#             pg_num = pdf.get_destination_page_number(b) + 1  # page count starts from 0
-#             print("%s%s: Page %s" % (" " * indent, b.title, pg_num))
+def getBookmarksPageNumbers(pdf):
+    bookmarks = []
+    def reviewBookmarks(bookmarks_list, indent=0):
+        for b in bookmarks_list:
+            if isinstance(b, list):
+                reviewBookmarks(b, indent + 4)
+            else:
+                pg_num = pdf.get_destination_page_number(b) + 1  # page count starts from 0
+                bookmarks.append((indent, b.title, pg_num))
 
-#     reviewAndPrintBookmarks(pdf.outline)
+    reviewBookmarks(pdf.outline)
+    return bookmarks
 
-# with open('../data/wholeTextbookPsych.pdf', "rb") as f:
-#     pdf = PdfReader(f)
-#     printBookmarksPageNumbers(pdf)
+def save_bookmarks(pdf_path, filepath):
+    bookmarks = []
+    page_length = 0
+    
+    with open(pdf_path, "rb") as f:
+        pdf = PdfReader(f)
+        bookmarks = getBookmarksPageNumbers(pdf)
+        page_length = len(pdf.pages)
 
+    pages = []
+    bookmarks_json = {}
+
+    current_chap = 0
+    section_pages = []
+
+    for b in bookmarks:
+        if b[0] == 0: # where a chapter starts
+            if section_pages != []:
+                section_page_ranges = []
+                for idx in range(len(section_pages)):
+                    if idx+1 == len(section_pages):
+                        section_page_ranges.append((section_pages[idx], b[2]))
+                    else:
+                        section_page_ranges.append((section_pages[idx], section_pages[idx+1]))
+                bookmarks_json[f"Chapter {current_chap} sections"] = section_page_ranges
+            section_page_ranges = []
+
+            if any(char.isdigit() for char in b[1]): # skips over non-chapter
+                current_chap += 1
+
+            pages.append(b[2])
+            
+        else: # where a section starts
+            section_pages.append(b[2])
+
+    page_ranges = []
+    for idx in range(len(pages)):
+        if idx+1 == len(pages):
+            page_ranges.append((pages[idx], page_length))
+        else:
+            page_ranges.append((pages[idx], pages[idx+1]-1))
+    bookmarks_json["page_ranges"] = page_ranges
+    
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(bookmarks_json, f, ensure_ascii=False, indent=4)
+        print(f"Bookmarks saved to {filepath}")
+
+    return None
+
+save_bookmarks("../data/wholeTextbookPsych.pdf", "../data/page_ranges.json")
 
 #
 # Retriever Configs
@@ -353,7 +401,7 @@ chapter6_config = retrieverConfig(
     qdrant_key=os.getenv("QDRANT_KEY"),
     search_type="similarity",
     search_kwargs={"k": 10},
-    collection_name="chapter6_collection2"
+    collection_name="chapter6_collection"
 )
 
 #
