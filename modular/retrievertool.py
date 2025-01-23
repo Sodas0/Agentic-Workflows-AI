@@ -139,7 +139,7 @@ class retriever:
 
             with open(output_pdf, "wb") as f:
                 writer.write(f)
-            print(f"Chapter {chapter_num} saved to {output_pdf}")
+            # print(f"Chapter {chapter_num} saved to {output_pdf}")
 
     # Load parent documents from a json file
     def _load_parent_docs(self, filepath):
@@ -266,76 +266,36 @@ class retriever:
         if not client.collection_exists(collection_name=self.collection_name):
             print(f"Collection {self.collection_name} does not exist, creating...")
 
-            client.create_collection(
-                collection_name=self.collection_name,
-                vectors_config=VectorParams(size=3072, distance=Distance.COSINE),
-            )
-
-            child_vectorstore = QdrantVectorStore(
-                client=client,
-                collection_name=self.collection_name,
-                embedding=OpenAIEmbeddings(model="text-embedding-3-large"),
-            )
-
-            # Initialize the Parent Document Retriever
-            retriever = ParentDocumentRetriever(
-                vectorstore=child_vectorstore,
-                docstore=store,
-                child_splitter=child_splitter,
-                parent_splitter=parent_splitter,
-                search_type=self.search_type,
-                search_kwargs=self.search_kwargs,
-            )
-            retriever.add_documents(parent_docs)
-
         else:
             print(f"Collection {self.collection_name} exists, reseting and recreating...")
 
             client.delete_collection(collection_name=self.collection_name)
 
-            client.create_collection(
-                collection_name=self.collection_name,
-                vectors_config=VectorParams(size=3072, distance=Distance.COSINE),
-            )
+        client.create_collection(
+            collection_name=self.collection_name,
+            vectors_config=VectorParams(size=3072, distance=Distance.COSINE),
+        )
 
-            child_vectorstore = QdrantVectorStore(
-                client=client,
-                collection_name=self.collection_name,
-                embedding=OpenAIEmbeddings(model="text-embedding-3-large"),
-            )
+        child_vectorstore = QdrantVectorStore(
+            client=client,
+            collection_name=self.collection_name,
+            embedding=OpenAIEmbeddings(model="text-embedding-3-large"),
+        )
 
-            # Initialize the Parent Document Retriever
-            retriever = ParentDocumentRetriever(
-                vectorstore=child_vectorstore,
-                docstore=store,
-                child_splitter=child_splitter,
-                parent_splitter=parent_splitter,
-                search_type=self.search_type,
-                search_kwargs=self.search_kwargs,
-            )
-            retriever.add_documents(parent_docs)
-
+        # Initialize the Parent Document Retriever
+        retriever = ParentDocumentRetriever(
+            vectorstore=child_vectorstore,
+            docstore=store,
+            child_splitter=child_splitter,
+            parent_splitter=parent_splitter,
+            search_type=self.search_type,
+            search_kwargs=self.search_kwargs,
+        )
+        retriever.add_documents(parent_docs)
 
         print("Parent Document Retriever initialized")
 
         return retriever
-
-
-# def printBookmarksPageNumbers(pdf):
-#     def reviewAndPrintBookmarks(bookmarks, indent=0):
-#         for b in bookmarks:
-#             if type(b) == list:
-#                 reviewAndPrintBookmarks(b, indent + 4)
-#                 continue
-#             pg_num = pdf.get_destination_page_number(b) + 1  # page count starts from 0
-#             print("%s%s: Page %s" % (" " * indent, b.title, pg_num))
-
-#     reviewAndPrintBookmarks(pdf.outline)
-
-# with open('../data/wholeTextbookPsych.pdf', "rb") as f:
-#     pdf = PdfReader(f)
-#     printBookmarksPageNumbers(pdf)
-
 
 #
 # Retriever Configs
@@ -376,7 +336,7 @@ chapter6_config = retrieverConfig(
     qdrant_key=os.getenv("QDRANT_KEY"),
     search_type="similarity",
     search_kwargs={"k": 10},
-    collection_name="chapter6_collection2_paddy"
+    collection_name="chapter6_collection"
 )
 
 #
