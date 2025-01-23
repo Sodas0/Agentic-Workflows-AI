@@ -151,7 +151,13 @@
     </div>
 
     <script>
+
+
+
+
+
         // Send chat messages
+
         document.getElementById("send-message").addEventListener("click", () => {
             const input = document.getElementById("chatbox-input");
             const message = input.value;
@@ -186,14 +192,25 @@
                 loadingGif.style.display = "none";  // Hide the GIF
                 input.style.display = "block";  // Show the textarea
 
-                // Add assistant's response
+                // Create a new div for the assistant's response
                 const assistantMessage = document.createElement("div");
                 assistantMessage.classList.add("message", "assistant");
-                assistantMessage.textContent = data.response; // Assuming the response is in the `response` field
-                content.appendChild(assistantMessage);
 
-                // Scroll to the bottom of the chatbox
-                content.scrollTop = content.scrollHeight;
+                // Split the response into words
+                const words = data.response.split(" ");
+                let wordIndex = 0;
+
+                // Use setInterval to display each word with a delay
+                const interval = setInterval(() => {
+                    if (wordIndex < words.length) {
+                        assistantMessage.textContent += words[wordIndex] + " ";  // Add the next word
+                        wordIndex++;
+                        content.appendChild(assistantMessage);  // Append the assistant message to the content
+                        content.scrollTop = content.scrollHeight;  // Scroll to the bottom
+                    } else {
+                        clearInterval(interval);  // Stop the interval once all words are displayed
+                    }
+                }, 100);  // Adjust this value for the typing speed (in milliseconds)
             })
             .catch(error => {
                 console.error('Error:', error);
