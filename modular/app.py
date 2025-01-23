@@ -16,14 +16,13 @@ app.secret_key = os.urandom(24)  # Required for session handling
 llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)
 graph = build_graph(llm)
 
+from bookmark import initialize_bookmarks, get_page_ranges
+
 # Textbook and page ranges
 PDF_PATH = "../data/wholeTextbookPsych.pdf"
-PAGE_RANGES = [
-        (19,46),(47,82),(83,120),(121,156),
-        (157,192),(193,224),(225,258),(259,290),
-        (291,332),(333,370),(371,410),(411,458),
-        (459,496),(497,548),(549,610),(611,644)
-    ] # Should be built by the textbook's table of contents
+# Build bookmarks
+initialize_bookmarks(PDF_PATH, "../data/page_ranges.json")
+PAGE_RANGES = get_page_ranges("../data/page_ranges.json")
 
 
 
