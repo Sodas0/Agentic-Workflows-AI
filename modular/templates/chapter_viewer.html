@@ -154,6 +154,7 @@
         // Send chat messages
         document.getElementById("send-message").addEventListener("click", () => {
             const input = document.getElementById("chatbox-input");
+            const message = input.value;
             const content = document.getElementById("chatbox-content");
             const loadingGif = document.getElementById("loading-gif");
 
@@ -165,14 +166,22 @@
             // Add user message
             const userMessage = document.createElement("div");
             userMessage.classList.add("message", "user");
-            userMessage.textContent = "Sending message...";  // Placeholder text while the GIF is shown
+            userMessage.textContent = message;  // Placeholder text while the GIF is shown
             content.appendChild(userMessage);
 
             // Scroll to the bottom of the chatbox
             content.scrollTop = content.scrollHeight;
 
-            // Simulate a delay (replace with actual API call)
-            setTimeout(() => {
+            // Send the user's message to the server
+            fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: message })
+            })
+            .then(response => response.json())
+            .then(data => {
                 // Hide the GIF and show the input again
                 loadingGif.style.display = "none";  // Hide the GIF
                 input.style.display = "block";  // Show the textarea
@@ -180,13 +189,33 @@
                 // Add assistant's response
                 const assistantMessage = document.createElement("div");
                 assistantMessage.classList.add("message", "assistant");
-                assistantMessage.textContent = "Here is your response!";
+                assistantMessage.textContent = data.response; // Assuming the response is in the `response` field
                 content.appendChild(assistantMessage);
 
                 // Scroll to the bottom of the chatbox
                 content.scrollTop = content.scrollHeight;
-            }, 3000); // Simulate a 3-second delay (replace with actual API call)
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Handle the error gracefully
+                loadingGif.style.display = "none";  // Hide the GIF in case of an error
+            });
         });
+
+        // Function to scroll the chat-box to the bottom
+        function scrollToBottom() {
+            const chatBox = document.getElementById('chat-box');
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // Automatically scroll to bottom on page load
+        window.onload = scrollToBottom;
+
+        // Automatically scroll to bottom when the chat box is updated
+        const chatBoxObserver = new MutationObserver(scrollToBottom);
+        const chatBox = document.getElementById('chat-box');
+        chatBoxObserver.observe(chatBox, { childList: true });
+
     </script>
 </body>
 </html>

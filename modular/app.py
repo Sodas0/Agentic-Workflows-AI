@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_file
+from flask import Flask, render_template, request, redirect, url_for, session, send_file, jsonify
+from flask_cors import CORS
 from langchain_openai import ChatOpenAI
 from graph import build_graph
 from dotenv import load_dotenv
@@ -11,7 +12,7 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Required for session handling
-
+CORS(app, resources={r"/chapter/*": {"origins": "*"}})  # Allow all origins for /chapter/*
 # Initialize LLM and graph
 llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)
 graph = build_graph(llm)
@@ -25,12 +26,6 @@ PAGE_RANGES = [
         (459,496),(497,548),(549,610),(611,644)
     ] # Should be built by the textbook's table of contents
 
-
-
-@app.route("/", methods=["GET", "POST"])
-def home():
-    return redirect(url_for("chat"))
-
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
     # Initialize session variables if not present
@@ -38,7 +33,10 @@ def chat():
         session["chat_history"] = []
 
     if request.method == "POST":
-        user_question = request.form.get("question", "").strip()
+        # Check the raw body to ensure it's coming in correctly
+        print("Request JSON:", request.get_json())  # Debug line to check incoming JSON
+        
+        user_question = request.json.get("message", "").strip()  # Expect JSON input
         if user_question:  # If the question is not empty
             # Append the user's message to chat history
             session["chat_history"].append({"sender": "user", "message": user_question})
@@ -56,8 +54,11 @@ def chat():
             # Save session to persist changes
             session.modified = True
 
-    # Pass the full chat history to the template
-    return render_template("chat.html", chat_history=session["chat_history"])
+            # Return JSON response with the latest bot message
+            return jsonify({"response": bot_response, "chat_history": session["chat_history"]})
+
+    return jsonify({"response": "ERROR", "chat_history": session["chat_history"]})
+
 
 # Serve chapter to user
 
@@ -83,8 +84,9 @@ def serve_chapter_pdf(chapter_number):
     return send_file(output_pdf, as_attachment=False, mimetype="application/pdf")
 
 # Serve the HTML page with the iframe
-@app.route("/chapter/<int:chapter_number>", methods=["GET"])
+@app.route("/chapter/<int:chapter_number>", methods=["GET", "POST"])
 def serve_chapter(chapter_number):
+    # Pass the full chat history and chapter number to the template
     return render_template("chapter_viewer.html", chapter_number=chapter_number)
 
 

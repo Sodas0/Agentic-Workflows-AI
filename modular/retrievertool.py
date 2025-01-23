@@ -376,7 +376,7 @@ chapter6_config = retrieverConfig(
     qdrant_key=os.getenv("QDRANT_KEY"),
     search_type="similarity",
     search_kwargs={"k": 10},
-    collection_name="chapter6_collection2"
+    collection_name="chapter6_collection2_paddy"
 )
 
 #
