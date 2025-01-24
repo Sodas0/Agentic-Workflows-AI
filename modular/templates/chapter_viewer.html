@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chapter Viewer</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <style>
         * {
             box-sizing: border-box;
@@ -19,11 +20,11 @@
         .container {
             display: flex;
             width: 100%;
-            height: 100%;
+            height: 75%;
         }
 
         .pdf-container {
-            width: 50%;
+            width: 85%;
             height: 100%;
             overflow-y: auto;
             position: relative;
@@ -128,29 +129,99 @@
             object-fit: contain; /* Ensure the GIF maintains its aspect ratio */
             display: none; /* Hidden initially */
         }
+        body {
+            background-color: #D73F09; /* OSU Primary Orange */
+            color: #020202; 
+        }
+        .chat-container {
+            max-width: 800px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        .chat-box {
+            height: 600px;
+            overflow-y: scroll;
+            border: 1px solid #000000;
+            border-radius: 8px;
+            padding: 10px;
+            background: #f1f3f5;
+        }
+        .message {
+            margin-bottom: 10px;
+        }
+        .user-message {
+            text-align: right;
+        }
+        .bot-message {
+            text-align: left;
+        }
+        .btn-primary {
+            background-color: #D73F09; /* OSU Primary Orange */
+            border-color: #D73F09;
+        }
+        .btn-primary:hover {
+            background-color: #B23507; /* Darker shade of OSU Orange */
+            border-color: #B23507;
+        }
+        .beaver-image {
+            position: absolute;
+            top: -15px; /* Position the image above the chat window */
+            right: 550px; /* Align it to the upper-right corner */
+            width: 100px; /* Adjust the size of the image */
+        }
+        .logout-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #D73F09; /* OSU Primary Orange */
+            border: none;
+            color: #FFFFFF;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .logout-btn:hover {
+            background-color: #B23507; /* Darker OSU Orange */
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="pdf-container">
-            <iframe src="/chapter_pdf/{{chapter_number}}" id="pdf-frame"></iframe>
-        </div>
+    
+    <div class="pdf-container">
+        <iframe src="/chapter_pdf/{{chapter_number}}" id="pdf-frame"></iframe>
+    </div>
 
+        
+    
+
+    <div class="container">
         <div class="chat-container">
-            <div id="chatbox-content">
-                <div class="message assistant">
-                    <strong>Assistant:</strong> How can I assist you today?
+            <form action="/logout" method="get">
+                <button type="submit" class="logout-btn">Logout</button>
+            </form>
+            <img src="{{ url_for('static', filename='DALL·E 2024-11-22 21.47.09.png') }}" alt="Beaver" class="beaver-image">
+            <h2 class="text-center">BeaverBot Tutoring</h2>
+            <div id="chat-box" class="chat-box">
+                {% for entry in chat_history %}
+                    <div class="message {% if entry.sender == 'user' %}user-message{% else %}bot-message{% endif %}">
+                        <strong>{{ entry.sender.capitalize() }}:</strong> {{ entry.message }}
+                    </div>
+                {% endfor %}
+            </div>
+            <form action="/chapter/{{chapter_number}}" method="post">
+                <div class="input-group mt-3">
+                    <input type="text" name="question" id="question" class="form-control" placeholder="Type your question..." autocomplete="off" required>
+                    <button class="btn btn-primary">Send</button>
                 </div>
-            </div>
-            <div id="chatbox-footer">
-                <textarea id="chatbox-input" placeholder="Type a message..."></textarea>
-                <button id="send-message"></button>
-                <img id="loading-gif" src="{{ url_for('static', filename='New_Piskel_4.gif') }}" alt="Loading..."/>
-            </div>
+            </form>
         </div>
     </div>
 
-    <script>
+    <!-- <script>
         // Send chat messages
         document.getElementById("send-message").addEventListener("click", () => {
             const input = document.getElementById("chatbox-input");
@@ -187,6 +258,21 @@
                 content.scrollTop = content.scrollHeight;
             }, 3000); // Simulate a 3-second delay (replace with actual API call)
         });
-    </script>
+    </script> -->
+    <script>
+        // Function to scroll the chat-box to the bottom
+        function scrollToBottom() {
+           const chatBox = document.getElementById('chat-box');
+           chatBox.scrollTop = chatBox.scrollHeight;
+       }
+
+       // Automatically scroll to bottom on page load
+       window.onload = scrollToBottom;
+
+       // Automatically scroll to bottom when the chat box is updated
+       const chatBoxObserver = new MutationObserver(scrollToBottom);
+       const chatBox = document.getElementById('chat-box');
+       chatBoxObserver.observe(chatBox, { childList: true });
+   </script>
 </body>
 </html>

@@ -83,9 +83,31 @@ def serve_chapter_pdf(chapter_number):
     return send_file(output_pdf, as_attachment=False, mimetype="application/pdf")
 
 # Serve the HTML page with the iframe
-@app.route("/chapter/<int:chapter_number>", methods=["GET"])
+@app.route("/chapter/<int:chapter_number>", methods=["GET", "POST"])
 def serve_chapter(chapter_number):
-    return render_template("chapter_viewer.html", chapter_number=chapter_number)
+    if "chat_history" not in session:
+        session["chat_history"] = []
+
+    if request.method == "POST":
+        user_question = request.form.get("question", "").strip()
+        if user_question:  # If the question is not empty
+            # Append the user's message to chat history
+            session["chat_history"].append({"sender": "user", "message": user_question})
+
+            # Generate a bot response
+            config = {"configurable": {"thread_id": "🐭"}}
+            bot_response = ""
+            for event in graph.stream({"messages": [("user", user_question)]}, config):
+                for value in event.values():
+                    bot_response = value["messages"][-1].content
+
+            # Append the bot's message to chat history
+            session["chat_history"].append({"sender": "bot", "message": bot_response})
+
+            # Save session to persist changes
+            session.modified = True
+
+    return render_template("chapter_viewer.html", chapter_number=chapter_number, chat_history=session["chat_history"])
 
 
 @app.route("/logout")
