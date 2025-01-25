@@ -128,8 +128,13 @@ def get_breakpoints(filepath, requirements={
     chap_str = f"Chapter {i} sections"
     while chap_str in json_page_ranges:
         bp = [
-            value[1] for key, value in json_page_ranges[chap_str].items() if valid_key(key, requirements)
+            (value[0], value[1]) for key, value in json_page_ranges[chap_str].items() if valid_key(key, requirements)
         ]
+
+        # Adjusts breakpoints so that they are relative to the chapter
+        # Based on pages in the chapter, not on the page number displayed on a given page
+        offset = bp[0][0]
+        bp = [bp[i][1] - offset for i in range(len(bp))]
 
         # print([key for key, value in json_page_ranges[chap_str].items() if valid_key(key, requirements)])
 
