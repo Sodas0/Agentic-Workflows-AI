@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_file
+from flask import Flask, render_template, request, redirect, url_for, session, send_file, jsonify
 from langchain_openai import ChatOpenAI
 from graph import build_graph
 from dotenv import load_dotenv
@@ -27,9 +27,19 @@ PAGE_RANGES = [
 
 
 
-@app.route("/", methods=["GET", "POST"])
+
+
+@app.route("/", methods=["GET"])
 def home():
-    return redirect(url_for("chat"))
+    # Dynamically create a list of chapters based on PAGE_RANGES
+    chapters = [{"number": i + 1, "start_page": start, "end_page": end} for i, (start, end) in enumerate(PAGE_RANGES)]
+    return render_template("home.html", chapters=chapters)
+
+
+
+# @app.route("/", methods=["GET", "POST"])
+# def home():
+#     return redirect(url_for("chat"))
 
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
@@ -40,6 +50,7 @@ def chat():
     if request.method == "POST":
         user_question = request.form.get("question", "").strip()
         if user_question:  # If the question is not empty
+            
             # Append the user's message to chat history
             session["chat_history"].append({"sender": "user", "message": user_question})
 
@@ -92,7 +103,10 @@ def serve_chapter(chapter_number):
         user_question = request.form.get("question", "").strip()
         if user_question:
             session["chat_history"].append({"sender": "user", "message": user_question})
-            config = {"configurable": {"thread_id": "🐭"}}
+            # TODO:
+                # configure thread_id to individual users (or create a new thread ID per reload for simplicity)
+                
+            config = {"configurable": {"thread_id": "🍅"}} #previously: 🐭
             bot_response = ""
             for event in graph.stream({"messages": [("user", user_question)]}, config):
                 for value in event.values():
@@ -110,7 +124,8 @@ def serve_chapter(chapter_number):
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("chat"))
+    chapters = [{"number": i + 1, "start_page": start, "end_page": end} for i, (start, end) in enumerate(PAGE_RANGES)]
+    return render_template("home.html", chapters=chapters)
 
 if __name__ == "__main__":
     app.run(debug=True)
