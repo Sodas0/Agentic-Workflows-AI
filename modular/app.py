@@ -11,7 +11,6 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Required for session handling
-CORS(app, resources={r"/chapter/*": {"origins": "*"}})  # Allow all origins for /chapter/*
 # Initialize LLM and graph
 llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)
 graph = build_graph(llm)
