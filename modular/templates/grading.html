@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grader API Test</title>
+    <script>
+        var questions;
+
+        async function generateQuestions() {
+            const chapter = document.getElementById("chapter").value;
+            const section = document.getElementById("section").value;
+            const difficulty = document.getElementById("difficulty").value;
+            const number_of_questions = document.getElementById("num_questions").value;
+            const type = document.getElementById("question_type").value;
+            const context = document.getElementById("context").value;
+
+            const response = await fetch("/generate_questions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ chapter, section, difficulty, number_of_questions, type, context })
+            });
+
+            const data = await response.json();
+            questions = data.questions;
+
+            // Display questions with dynamic input fields based on question type
+            let questionsHTML = '';
+            questions.forEach((q, index) => {
+                questionsHTML += `<div><strong>Q${index + 1}:</strong> ${q.question}<br>`;
+
+                if (type === "MCQ") {
+                    q.options.forEach((option, idx) => {
+                        questionsHTML += `
+                            <label>
+                                <input type="checkbox" class="mcq-answer" data-index="${index}" data-option="${idx}"> ${option}
+                            </label><br>`;
+                    });
+                } else if (type === "SAQ") {
+                    questionsHTML += `
+                        <label>
+                            <input type="text" class="saq-answer" data-index="${index}" placeholder="Enter your answer">
+                        </label><br>`;
+                }
+
+                questionsHTML += `</div><br>`;
+            });
+
+            document.getElementById("questions_output").innerHTML = questionsHTML;
+        }
+
+        async function gradeAnswers() {
+            const answers = [];
+
+            // Collect answers from the inputs
+            questions.forEach((q, index) => {
+                let answer;
+                if (q.options) {
+                    // Collect answers for MCQ
+                    answer = [];
+                    document.querySelectorAll(`input[data-index="${index}"].mcq-answer`).forEach((checkbox) => {
+                        if (checkbox.checked) {
+                            answer.push(q.options[checkbox.dataset.option]);
+                        }
+                    });
+                } else {
+                    // Collect answer for SAQ
+                    answer = document.querySelector(`input[data-index="${index}"].saq-answer`).value;
+                }
+                answers.push({ ...q, student_answer: answer });
+            });
+
+            // Send the answers to the backend for grading
+            const response = await fetch("/grade_answers", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    questions: answers,
+                    type: document.getElementById("question_type").value,
+                    context: document.getElementById("context").value,
+                    response: answers // Pass student answers as 'response' for grading
+                })
+            });
+
+            const data = await response.json();
+            document.getElementById("grades_output").textContent = JSON.stringify(data, null, 2);
+        }
+    </script>
+</head>
+<body>
+    <h2>Grader API Test</h2>
+
+    <h3>1. Generate Questions</h3>
+    <label>Chapter: <input type="number" id="chapter" value="1"></label><br>
+    <label>Section: <input type="number" id="section" value="1"></label><br>
+    <label>Difficulty (1-5): <input type="number" id="difficulty" value="3" min="1" max="5"></label><br>
+    <label>Number of Questions: <input type="number" id="num_questions" value="5"></label><br>
+    <label>Question Type: 
+        <select id="question_type">
+            <option value="MCQ">Multiple Choice</option>
+            <option value="SAQ">Short Answer</option>
+        </select>
+    </label><br>
+    <label>Context: <textarea id="context" rows="4" cols="50"></textarea></label><br>
+    <button onclick="generateQuestions()">Generate Questions</button>
+    <pre id="questions_output"></pre>
+
+    <h3>2. Grade Answers</h3>
+    <button onclick="gradeAnswers()">Grade Answers</button>
+    <pre id="grades_output"></pre>
+</body>
+</html>
