@@ -8,4 +8,6 @@ __pycache__/
 .env
 *.pdf
 data/
+/modular/test.py
+/modular/templates/test.html
 

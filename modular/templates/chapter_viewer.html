@@ -57,31 +57,35 @@
             margin-bottom: 5px;
             font-size: 14px;
             word-wrap: break-word;
+            max-width: 80%;
         }
 
         .message.user {
-            background-color: #0078D4;
-            color: white;
+            background-color: #d3d3d3;
+            color: rgb(0, 0, 0);
             align-self: flex-end;
         }
 
         .message.assistant {
-            background-color: #E4E6EB;
+            background-color: #ffffff;
             color: black;
             align-self: flex-start;
         }
 
         #chatbox-footer {
-            padding: 10px;
+            position: sticky;
+            bottom: 0;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            align-items: flex-end; /* Align items to the bottom */
+            padding: 10px;
             background-color: #fff;
             border-top: 1px solid #ccc;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         #chatbox-input {
-            width: 80%;
+            flex: 1;
             padding: 8px;
             border-radius: 5px;
             border: 1px solid #ccc;
@@ -89,10 +93,10 @@
             outline: none;
             min-height: 40px;
             max-height: 120px;
-            resize: none;
             overflow-y: auto;
-            transition: height 0.2s ease;
-            position: relative;
+            resize: none;
+            margin-right: 10px;
+            align-self: flex-end; /* Ensure the input aligns to the bottom */
         }
 
         #send-message {
@@ -106,12 +110,20 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            position: absolute; /* Fix the button's position */
+            right: 10px; /* Position it to the right */
+            bottom: 10px; /* Position it at the bottom */
+            z-index: 1; /* Ensure it stays above other elements */
         }
 
-        #send-message:after {
-            content: '→'; /* White arrow */
-            font-size: 18px;
-            color: white;
+        #send-message svg {
+            width: 20px;
+            height: 20px;
+            fill: none;
+            stroke: white;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
 
         iframe {
@@ -231,7 +243,6 @@
             // Hide the input and show the loading GIF inside the input field
             input.value = ''; // Clear any text before showing the gif
             loadingGif.style.display = "block";  // Show the GIF
-            input.style.position = "relative";  // Ensure the textarea is a positioning context
 
             // Add user message
             const userMessage = document.createElement("div");
@@ -246,7 +257,6 @@
             setTimeout(() => {
                 // Hide the GIF and show the input again
                 loadingGif.style.display = "none";  // Hide the GIF
-                input.style.display = "block";  // Show the textarea
 
                 // Add assistant's response
                 const assistantMessage = document.createElement("div");

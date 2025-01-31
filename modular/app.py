@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 import io
 from PyPDF2 import PdfReader, PdfWriter
+from grading import Grader
 
 # Load environment variables
 load_dotenv()
@@ -119,6 +120,52 @@ def serve_chapter(chapter_number):
     # For GET requests, serve the full page
     return render_template("chapter_viewer.html", chapter_number=chapter_number, chat_history=session["chat_history"])
 
+@app.route('/view_chapter/<int:chapter_number>')
+def view_chapter(chapter_number):
+    # You can validate or process chapter_number here if needed
+    return render_template('test.html', chapter_number=chapter_number)
+
+grader = Grader()
+
+@app.route('/generate_questions', methods=['POST'])
+def generate_questions():
+    """Generates multiple-choice or short-answer questions based on user input."""
+    data = request.json
+    chapter = data.get("chapter")
+    section = data.get("section")
+    difficulty = data.get("difficulty", 3)
+    number_of_questions = data.get("number_of_questions", 5)
+    question_type = data.get("type", "MCQ")  # "MCQ" or "SAQ"
+    context = data.get("context", "")  # Add context parameter
+
+    if question_type == "MCQ":
+        questions = grader.generate_multiple_choice_questions(chapter, section, difficulty, number_of_questions, context)
+    elif question_type == "SAQ":
+        questions = grader.generate_multiple_SAQ(chapter, section, difficulty, number_of_questions, context)
+    else:
+        return jsonify({"error": "Invalid question type. Use 'MCQ' or 'SAQ'."}), 400
+
+    return jsonify(questions)
+
+@app.route('/grade_answers', methods=['POST'])
+def grade_answers():
+    """Grades student answers against expected answers."""
+    data = request.json
+    questions = data.get("questions", [])
+    question_type = data.get("type", "MCQ")  # Add question_type parameter
+    context = data.get("context", "")  # Add context parameter
+    response = data.get("response", "")
+
+    if not questions:
+        return jsonify({"error": "No questions provided."}), 400
+
+    graded_questions = grader.grade_answers(questions, question_type, response, context)
+    return jsonify({"questions": graded_questions})
+
+@app.route('/grading', methods=['GET'])
+def grading_page():
+    """Renders the grading.html template."""
+    return render_template('grading.html')
 
 @app.route("/logout")
 def logout():
@@ -127,4 +174,4 @@ def logout():
     return render_template("home.html", chapters=chapters)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host='127.0.0.1', port=5000)
