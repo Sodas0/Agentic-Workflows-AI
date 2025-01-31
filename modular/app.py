@@ -11,31 +11,24 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Required for session handling
-
+CORS(app, resources={r"/chapter/*": {"origins": "*"}})  # Allow all origins for /chapter/*
 # Initialize LLM and graph
 llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)
 graph = build_graph(llm)
 
+from bookmark import initialize_bookmarks, get_page_ranges
+
 # Textbook and page ranges
 PDF_PATH = "../data/wholeTextbookPsych.pdf"
-PAGE_RANGES = [
-        (19,46),(47,82),(83,120),(121,156),
-        (157,192),(193,224),(225,258),(259,290),
-        (291,332),(333,370),(371,410),(411,458),
-        (459,496),(497,548),(549,610),(611,644)
-    ] # Should be built by the textbook's table of contents
-
-
-
-
+# Build bookmarks
+initialize_bookmarks(PDF_PATH, "../data/page_ranges.json")
+PAGE_RANGES = get_page_ranges("../data/page_ranges.json")
 
 @app.route("/", methods=["GET"])
 def home():
     # Dynamically create a list of chapters based on PAGE_RANGES
     chapters = [{"number": i + 1, "start_page": start, "end_page": end} for i, (start, end) in enumerate(PAGE_RANGES)]
     return render_template("home.html", chapters=chapters)
-
-
 
 # @app.route("/", methods=["GET", "POST"])
 # def home():
@@ -48,7 +41,10 @@ def chat():
         session["chat_history"] = []
 
     if request.method == "POST":
-        user_question = request.form.get("question", "").strip()
+        # Check the raw body to ensure it's coming in correctly
+        print("Request JSON:", request.get_json())  # Debug line to check incoming JSON
+        
+        user_question = request.json.get("message", "").strip()  # Expect JSON input
         if user_question:  # If the question is not empty
             
             # Append the user's message to chat history
@@ -67,8 +63,11 @@ def chat():
             # Save session to persist changes
             session.modified = True
 
-    # Pass the full chat history to the template
-    return render_template("chat.html", chat_history=session["chat_history"])
+            # Return JSON response with the latest bot message
+            return jsonify({"response": bot_response, "chat_history": session["chat_history"]})
+
+    return jsonify({"response": "ERROR", "chat_history": session["chat_history"]})
+
 
 # Serve chapter to user
 
