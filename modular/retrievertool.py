@@ -18,6 +18,7 @@ from qdrant_client.http.models import Distance, VectorParams
 
 import os
 from dotenv import load_dotenv
+from tqdm import tqdm
 
 # Load environment variables
 env_path = os.path.join(os.path.dirname(__file__), ".env")
@@ -291,7 +292,21 @@ class retriever:
             search_type=self.search_type,
             search_kwargs=self.search_kwargs,
         )
-        retriever.add_documents(parent_docs)
+
+        batch_size = 10
+        
+        with tqdm(
+            total=len(parent_docs),
+            desc="Adding parent documents to retriever",
+            unit="documents",
+            bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]",
+        ) as pbar:
+            for i in range(0, len(parent_docs), batch_size):
+                batch = parent_docs[i : i + batch_size]
+                retriever.add_documents(batch)
+
+                update_amount = min(batch_size, len(parent_docs)-i)
+                pbar.update(update_amount)
 
         print("Parent Document Retriever initialized")
 
