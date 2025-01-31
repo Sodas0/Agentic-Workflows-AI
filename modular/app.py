@@ -1,5 +1,4 @@
 from flask import Flask, render_template, request, redirect, url_for, session, send_file, jsonify
-from flask_cors import CORS
 from langchain_openai import ChatOpenAI
 from graph import build_graph
 from dotenv import load_dotenv
@@ -25,6 +24,16 @@ PDF_PATH = "../data/wholeTextbookPsych.pdf"
 initialize_bookmarks(PDF_PATH, "../data/page_ranges.json")
 PAGE_RANGES = get_page_ranges("../data/page_ranges.json")
 
+@app.route("/", methods=["GET"])
+def home():
+    # Dynamically create a list of chapters based on PAGE_RANGES
+    chapters = [{"number": i + 1, "start_page": start, "end_page": end} for i, (start, end) in enumerate(PAGE_RANGES)]
+    return render_template("home.html", chapters=chapters)
+
+# @app.route("/", methods=["GET", "POST"])
+# def home():
+#     return redirect(url_for("chat"))
+
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
     # Initialize session variables if not present
@@ -37,6 +46,7 @@ def chat():
         
         user_question = request.json.get("message", "").strip()  # Expect JSON input
         if user_question:  # If the question is not empty
+            
             # Append the user's message to chat history
             session["chat_history"].append({"sender": "user", "message": user_question})
 
@@ -85,14 +95,36 @@ def serve_chapter_pdf(chapter_number):
 # Serve the HTML page with the iframe
 @app.route("/chapter/<int:chapter_number>", methods=["GET", "POST"])
 def serve_chapter(chapter_number):
-    # Pass the full chat history and chapter number to the template
-    return render_template("chapter_viewer.html", chapter_number=chapter_number)
+    if "chat_history" not in session:
+        session["chat_history"] = []
+
+    if request.method == "POST":
+        user_question = request.form.get("question", "").strip()
+        if user_question:
+            session["chat_history"].append({"sender": "user", "message": user_question})
+            # TODO:
+                # configure thread_id to individual users (or create a new thread ID per reload for simplicity)
+                
+            config = {"configurable": {"thread_id": "🍅"}} #previously: 🐭
+            bot_response = ""
+            for event in graph.stream({"messages": [("user", user_question)]}, config):
+                for value in event.values():
+                    bot_response = value["messages"][-1].content
+            session["chat_history"].append({"sender": "bot", "message": bot_response})
+            session.modified = True
+
+        # Render only the chat messages as a response for AJAX
+        return render_template("chat_messages.html", chat_history=session["chat_history"])
+
+    # For GET requests, serve the full page
+    return render_template("chapter_viewer.html", chapter_number=chapter_number, chat_history=session["chat_history"])
 
 
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("chat"))
+    chapters = [{"number": i + 1, "start_page": start, "end_page": end} for i, (start, end) in enumerate(PAGE_RANGES)]
+    return render_template("home.html", chapters=chapters)
 
 if __name__ == "__main__":
     app.run(debug=True)

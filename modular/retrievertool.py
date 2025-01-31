@@ -360,14 +360,15 @@ chapter6_config = retrieverConfig(
 
 # textbook_retriever = retriever(textbook_config).generate_retriever()
 chapter6_retriever = retriever(chapter6_config).generate_retriever()
+textbook_retriever = retriever(textbook_config).generate_retriever()
 
 
 # Create a tool for the textbook retriever
-textbook_retriever_tool = create_retriever_tool(
-    chapter6_retriever,
-    "retrieve_textbook_content",
-    "Search and return information from the psychology textbook."
-)
+# textbook_retriever_tool = create_retriever_tool(
+#     chapter6_retriever,
+#     "retrieve_textbook_content",
+#     "Search and return information from the psychology textbook."
+# )
 
 
 # Idea for TODO:
@@ -375,8 +376,10 @@ textbook_retriever_tool = create_retriever_tool(
     # for example, a sourced chunk could look like : <content>:<chapter>:<section>:<page>:<chunk#>
     # this would greatly help in organizing the content and making it easier to retrieve information
     # it has more to do with the generation of the parent documents than the retriever tool itself
-# textbook_retriever_tool = create_retriever_tool(
-#     textbook_retriever,
-#     "retrieve_textbook_content",
-#     "Search and return information from the psychology textbook."
-# )
+
+
+textbook_retriever_tool = create_retriever_tool(
+    textbook_retriever,
+    "retrieve_textbook_content",
+    "Search and return information from the psychology textbook."
+)

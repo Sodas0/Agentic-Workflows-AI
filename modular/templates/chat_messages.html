@@ -1,0 +1,5 @@
+{% for entry in chat_history %}
+    <div class="message {% if entry.sender == 'user' %}user-message{% else %}bot-message{% endif %}">
+        <strong>{{ entry.sender.capitalize() }}:</strong> {{ entry.message }}
+    </div>
+{% endfor %}
