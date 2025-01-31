@@ -6,6 +6,12 @@ import os
 import io
 from PyPDF2 import PdfReader, PdfWriter
 
+def get_config():
+    configuration = {"configurable": {"thread_id": "🍅"}}
+    return configuration
+
+config = get_config()
+
 # Load environment variables
 load_dotenv()
 
@@ -44,9 +50,11 @@ def home():
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
     # Initialize session variables if not present
-    if "chat_history" not in session:
+    if "chat_history" not in session: 
         session["chat_history"] = []
-
+        
+       
+       
     if request.method == "POST":
         user_question = request.form.get("question", "").strip()
         if user_question:  # If the question is not empty
@@ -55,7 +63,7 @@ def chat():
             session["chat_history"].append({"sender": "user", "message": user_question})
 
             # Generate a bot response
-            config = {"configurable": {"thread_id": "🐭"}}
+            
             bot_response = ""
             for event in graph.stream({"messages": [("user", user_question)]}, config):
                 for value in event.values():
@@ -97,7 +105,21 @@ def serve_chapter_pdf(chapter_number):
 @app.route("/chapter/<int:chapter_number>", methods=["GET", "POST"])
 def serve_chapter(chapter_number):
     if "chat_history" not in session:
+        # Initially get the bot to send a message first by prompting it with a hidden message.
+        pre_message  = "What's your goal?" 
+        
         session["chat_history"] = []
+
+        bot_response = ""
+        for event in graph.stream({"messages": [("user", pre_message)]}, config):
+            for value in event.values():
+                bot_response = value["messages"][-1].content
+
+
+        # Append the bot's message to chat history
+        session["chat_history"].append({"sender": "bot", "message": bot_response})
+        print(session["chat_history"])
+    
 
     if request.method == "POST":
         user_question = request.form.get("question", "").strip()
@@ -106,7 +128,6 @@ def serve_chapter(chapter_number):
             # TODO:
                 # configure thread_id to individual users (or create a new thread ID per reload for simplicity)
                 
-            config = {"configurable": {"thread_id": "🍅"}} #previously: 🐭
             bot_response = ""
             for event in graph.stream({"messages": [("user", user_question)]}, config):
                 for value in event.values():
