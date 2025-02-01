@@ -74,6 +74,7 @@ def is_question(message: str) -> str:
 
 textbook_retriever = textbook_retriever_tool
 
+#quiz_generator = quiz_generator_tool
 
     
 def get_tools():
