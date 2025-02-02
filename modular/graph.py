@@ -3,9 +3,43 @@ from tools import BasicToolNode, get_tools
 from state import State
 from langchain_core.messages import SystemMessage
 from typing import Annotated
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.prebuilt import create_react_agent
 
-systemPrompt = SystemMessage("You are a helpful psychology tutor whose goal is to help students understand the concepts of psychology.")
+systemPrompt = SystemMessage(
+        "You are a helpful tutor whose goal is to help students understand the concepts of textbook. \
+        If the user asks a question about anything outside of the textbook, be polite and remind them that you're an \
+        instructor. Use no formatting in your replies. Keep your responses brief, yet informative. The overall \
+        goal is to help the user learn from the textbook. You have access to two tools: the textbook retriever, \
+        which will retrieve the appropriate information for you to answer their questions, as well as a pre learning quiz generator.\
+        Use the pre learning quiz generator to generate a quiz for the user as the FIRST message."
 
+        # TODO: 
+            # Let the system prompt know what chapter the user is currently on.
+            # something like: "The user is currently reading chapter {chapterNumber}" appended to the prompt.
+    )
+
+#[DEBUG]
+# systemPrompt = SystemMessage(
+#         "You are a helpful tutor whose goal is to help students understand the concepts of textbook. \
+#         Use no formatting in your replies, and keep your responses brief, yet informative. The overall \
+#         goal is to help the user learn from the textbook. You have access to two tools: the textbook retriever, \
+#         which will retrieve the appropriate information for you to answer their questions, as well as a quiz generator.\
+#         Use the quiz generator to generate a quiz for the user as the FIRST message."
+    
+#     )
+
+
+
+def build_graph(llm):
+    """
+    Builds and compiles the chatbot's state graph.
+    """
+    tools = get_tools()
+    memory = MemorySaver()
+    
+    graph = create_react_agent(llm, tools,  checkpointer=memory, state_modifier=systemPrompt)
+    return graph
 
 
 def route_tools(state: State):
@@ -24,31 +58,23 @@ def route_tools(state: State):
     return "__end__"
 
 
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.prebuilt import create_react_agent
-def build_graph(llm):
-    """
-    Builds and compiles the chatbot's state graph.
-    """
-    graph_builder = StateGraph(State)
 
-    # Bind tools to the LLM
-    tools = get_tools()
-    llm_with_tool = llm.bind_tools(tools)
+### DEPRECATED, pending deletion ###
+
+#
+    #llm_with_tool = llm.bind_tools(tools)
 
     # Add chatbot node
-    def supervisor(state: State):
-        return {"messages": [llm_with_tool.invoke([systemPrompt] + state["messages"])]}
+    # def supervisor(state: State):
+    #     return {"messages": [llm_with_tool.invoke([systemPrompt] + state["messages"])]}
     
-    memory = MemorySaver()
     
     # This agent is the "supervisor" and has access to the tools
     # Previously, we defined nodes and edges, but using one such agent with capacity for memory is simpler 
     # both in terms of runtime, and in terms of code complexity.
     
-    graph = create_react_agent(llm, tools, checkpointer=memory)
-    
-    ##### NODES #####
+
+##### NODES #####
     
     # tool_node = BasicToolNode(tools=tools)
     # graph_builder.add_node("tools", tool_node)
@@ -68,4 +94,3 @@ def build_graph(llm):
     # )
 
     #return graph_builder.compile()
-    return graph

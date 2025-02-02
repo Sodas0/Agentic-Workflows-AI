@@ -1,10 +1,8 @@
 import json
 from langchain_core.messages import ToolMessage
-from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_community.tools import tool
 from retrievertool import textbook_retriever_tool
-
-
+from langchain_openai import ChatOpenAI
 class BasicToolNode:
     """
     A node that processes and executes tool requests embedded in the last AI message.
@@ -41,20 +39,30 @@ class BasicToolNode:
 
 # Easily modify this list of tools to add or remove tools from the single agent.
 # We can also add new agents with their own tools, as long as we route them properly in the workflow.
+# Look at the example below to see how a tool is defined.
+# @tool
+# def add(a: int, b: int) -> int:
+#     """Use this tool to add two numbers."""
+#     return a + b
+
 
 @tool
-def add(a: int, b: int) -> int:
-    """Use this tool to add two numbers."""
-    return a + b
+def generate_prelearning_quiz():
+    """Use this tool to display a pre-learning quiz for the user."""
+    # TODO:
+        # Generate a pre-learning quiz depending on the current chapter of the textbook.
+        # Can use hard coded pre learning questions but that's a terrible practice, since we ultimately want to be able to switch textbooks
+        # LLM maybe?
+        # First, display a popup
+        
+        
+    return {"action": "display_popup", "content": "Pre-learning quiz content goes here."}
 
 
-
-from langchain_openai import ChatOpenAI
 
 
 #TODO:
   # 1. figure out the correct return type for this tool to effectively check if a message is a question
-
 @tool
 def is_question(message: str) -> str:
     """Determines whether a message is a question."""
@@ -74,7 +82,7 @@ def is_question(message: str) -> str:
 
 textbook_retriever = textbook_retriever_tool
 
-#quiz_generator = quiz_generator_tool
+
 
     
 def get_tools():
@@ -85,6 +93,6 @@ def get_tools():
     
     textbook_retriever = textbook_retriever_tool
     
-    tools = [textbook_retriever] # add is_question tool here, along with other tools yet to be designed
+    tools = [textbook_retriever, generate_prelearning_quiz] # add is_question tool here, along with other tools yet to be designed
     return tools
 
