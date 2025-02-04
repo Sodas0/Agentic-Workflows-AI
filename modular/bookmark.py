@@ -103,7 +103,7 @@ def get_page_ranges(filepath):
 
     return chapter_page_ranges
 
-def get_breakpoints(filepath, requirements={
+def get_section_ranges_by_chapter(filepath, sckew=True, requirements={
     "exact_matches": ["Introduction"],
     "digit_check": True,
 }
@@ -113,7 +113,7 @@ def get_breakpoints(filepath, requirements={
             return True
         return False
 
-    breakpoints = {}
+    ranges = {}
 
     if not os.path.exists(filepath):
         print(f"No page ranges found at {filepath}")
@@ -127,25 +127,53 @@ def get_breakpoints(filepath, requirements={
     i = 1
     chap_str = f"Chapter {i} sections"
     while chap_str in json_page_ranges:
-        bp = [
+        s_ranges = [
             (value[0], value[1]) for key, value in json_page_ranges[chap_str].items() if valid_key(key, requirements)
         ]
 
+        # print(s_ranges)
+
         # Adjusts breakpoints so that they are relative to the chapter
         # Based on pages in the chapter, not on the page number displayed on a given page
-        offset = bp[0][0]
-        bp = [bp[i][1] - offset for i in range(len(bp))]
+        if sckew:
+            offset = s_ranges[0][0]
+            s_ranges = [(s_ranges[i][0] - offset, s_ranges[i][1] - offset) for i in range(len(s_ranges))]
 
         # print([key for key, value in json_page_ranges[chap_str].items() if valid_key(key, requirements)])
 
-        breakpoints[f"Chapter {i}"] = bp
+        ranges[f"Chapter {i}"] = s_ranges
         i += 1
         chap_str = f"Chapter {i} sections"
 
     print("Breakpoints loaded")
 
-    return breakpoints
+    return ranges
+
+def save_section_pdf(pdf_path, page_range_path, filepath):
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    print(f"Saving section PDFs to {filepath}...")
+
+    ranges = get_section_ranges_by_chapter(page_range_path, sckew=False)
+
+    for chap, s_ranges in ranges.items():
+        print(f"Saving {chap}'s sections...")
+        os.makedirs(f"{filepath}/{chap}", exist_ok=True)
+        offset  = s_ranges[0][0]
+        for s_range in s_ranges:
+            reader = PdfReader(pdf_path)
+            writer = PdfWriter()
+
+            for page_num in range(s_range[0]-1, s_range[1]):
+                writer.add_page(reader.pages[page_num])
+
+            with open(f"{filepath}/{chap}/{s_range[0]-offset}-{s_range[1]-offset}.pdf", "wb") as f:
+                writer.write(f)
+
+    print("Section PDFs saved")
+
+    return None
 
 # initialize_bookmarks("../data/wholeTextbookPsych.pdf", "../data/page_ranges.json")
 # print(get_page_ranges("../data/page_ranges.json"))
-# print(get_breakpoints("../data/page_ranges.json"))
+# print(get_section_ranges_by_chapter("../data/page_ranges.json"))
+# save_section_pdf("../data/wholeTextbookPsych.pdf", "../data/page_ranges.json", "../data/sections")
