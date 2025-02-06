@@ -213,7 +213,7 @@
         </div>
     </div>
 
-    <script>
+    <!-- <script>
         document.querySelector('form[action^="/chapter/"]').addEventListener('submit', async (event) => {
             event.preventDefault(); // Prevent the form from reloading the page
     
@@ -242,7 +242,55 @@
                 console.error('Error:', error);
             }
         });
-    </script>
+    </script> -->
+    <!-- <script>
+        document.querySelector('form[action^="/chapter/"]').addEventListener('submit', async (event) => {
+            event.preventDefault(); // Prevent the page from reloading
+        
+            const form = event.target;
+            const formData = new FormData(form);
+            const inputField = form.querySelector('input[name="question"]');
+            
+            // Clear the input field immediately when the form is submitted
+            inputField.value = '';
+        
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                });
+        
+                if (response.ok) {
+                    // Get the chat box element where the bot messages will be appended
+                    const chatBox = document.getElementById('chat-box');
+        
+                    // Create a reader from the response body
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let done = false;
+        
+                    // Optionally, clear or prepare the chat box for new incoming data
+                    // chatBox.innerHTML = "";
+        
+                    while (!done) {
+                        // Read the next chunk from the stream
+                        const { value, done: doneReading } = await reader.read();
+                        done = doneReading;
+                        // Decode the binary chunk into text
+                        const chunk = decoder.decode(value, { stream: !done });
+                        // Append the chunk to the chat box
+                        chatBox.innerHTML += chunk;
+                        // Optionally scroll to the bottom as new text is added
+                        chatBox.scrollTop = chatBox.scrollHeight;
+                    }
+                } else {
+                    console.error('Failed to send the message');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+        </script> -->
     <script>
         function togglePDF() {
             const pdfContainer = document.getElementById('pdf-container');
@@ -261,6 +309,66 @@
             }
         }
     </script>
-
+<script>
+    // Listen for submissions on the chat form.
+    document.querySelector('form[action^="/chapter/"]').addEventListener('submit', async (event) => {
+      event.preventDefault(); // Prevent the default page reload
+  
+      const form = event.target;
+      const formData = new FormData(form);
+      const inputField = form.querySelector('input[name="question"]');
+      const userQuestion = inputField.value.trim();
+  
+      // Get the chat box element
+      const chatBox = document.getElementById('chat-box');
+  
+      // Append the user's message to the chat box.
+      if (userQuestion) {
+        const userMessageDiv = document.createElement('div');
+        userMessageDiv.classList.add('message', 'user-message');
+        userMessageDiv.innerHTML = `<strong>User:</strong> ${userQuestion}`;
+        chatBox.appendChild(userMessageDiv);
+      }
+  
+      // Clear the input field immediately.
+      inputField.value = '';
+  
+      try {
+        // Send the user's message to the server.
+        const response = await fetch(form.action, {
+          method: 'POST',
+          body: formData,
+        });
+  
+        if (response.ok) {
+          // Create a new container for the bot's message with the "Bot:" label.
+          const botMessageDiv = document.createElement('div');
+          botMessageDiv.classList.add('message', 'bot-message');
+          botMessageDiv.innerHTML = `<strong>Bot:</strong> `;
+          chatBox.appendChild(botMessageDiv);
+  
+          // Set up a reader to process the streamed response.
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let done = false;
+  
+          // Process the response stream chunk by chunk.
+          while (!done) {
+            const { value, done: doneReading } = await reader.read();
+            done = doneReading;
+            const chunk = decoder.decode(value, { stream: !done });
+            // Append the chunk to the bot's message container.
+            botMessageDiv.innerHTML += chunk;
+            // Optionally, scroll to the bottom as new text is added.
+            chatBox.scrollTop = chatBox.scrollHeight;
+          }
+        } else {
+          console.error('Failed to send the message');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    });
+  </script>
 </body>
 </html>

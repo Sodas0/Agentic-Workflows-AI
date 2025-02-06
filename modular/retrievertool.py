@@ -335,7 +335,7 @@ textbook_config = retrieverConfig(
     qdrant_key=os.getenv("QDRANT_KEY"),
     search_type="similarity",
     search_kwargs={"k": 10},
-    collection_name="textbook_collection"
+    collection_name="textbook_collection_Aaron2"
     )
 
 chapter6_config = retrieverConfig(
@@ -351,7 +351,7 @@ chapter6_config = retrieverConfig(
     qdrant_key=os.getenv("QDRANT_KEY"),
     search_type="similarity",
     search_kwargs={"k": 10},
-    collection_name="chapter6_collection"
+    collection_name="chapter6_collection_Aaron2"
 )
 
 #

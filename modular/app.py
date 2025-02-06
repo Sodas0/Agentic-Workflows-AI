@@ -1,9 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_file, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, send_file, jsonify, Response, stream_with_context
 from langchain_openai import ChatOpenAI
 from graph import build_graph
 from dotenv import load_dotenv
 import os
 import io
+import time
 from PyPDF2 import PdfReader, PdfWriter
 
 def get_config():
@@ -16,7 +17,7 @@ config = get_config()
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # Required for session handling
+app.secret_key = "my_secret_key" #os.urandom(24)  # Required for session handling
 # Initialize LLM and graph
 llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)
 graph = build_graph(llm)
@@ -102,42 +103,52 @@ def serve_chapter_pdf(chapter_number):
 # Serve the HTML page with the iframe
 @app.route("/chapter/<int:chapter_number>", methods=["GET", "POST"])
 def serve_chapter(chapter_number):
+    # Initialize chat history if it doesn't exist
     if "chat_history" not in session:
-        # Initially get the bot to send a message first by prompting it with a hidden message.
         pre_message  = "What's your goal?" 
-        
         session["chat_history"] = []
-
         bot_response = ""
         for event in graph.stream({"messages": [("user", pre_message)]}, config):
             for value in event.values():
                 bot_response = value["messages"][-1].content
-
-
-        # Append the bot's message to chat history
         session["chat_history"].append({"sender": "bot", "message": bot_response})
-        print(session["chat_history"])
     
-
+    # Handle POST (user message) requests.
     if request.method == "POST":
         user_question = request.form.get("question", "").strip()
         if user_question:
             session["chat_history"].append({"sender": "user", "message": user_question})
-            # TODO:
-                # configure thread_id to individual users (or create a new thread ID per reload for simplicity)
+            
+            def generate():
+                # First, accumulate the final bot response.
+                final_response = ""
+                for event in graph.stream({"messages": [("user", user_question)]}, config):
+                    for value in event.values():
+                        # Overwrite with the latest content from the event.
+                        final_response = value["messages"][-1].content
+                print("Final bot response:", final_response)
                 
-            bot_response = ""
-            for event in graph.stream({"messages": [("user", user_question)]}, config):
-                for value in event.values():
-                    bot_response = value["messages"][-1].content
-            session["chat_history"].append({"sender": "bot", "message": bot_response})
-            session.modified = True
+                # Update session with the final response.
+                session["chat_history"].append({"sender": "bot", "message": final_response})
+                session.modified = True
 
-        # Render only the chat messages as a response for AJAX
+                # Now, stream out the final response gradually.
+                for char in final_response:
+                    yield char
+                    # Adjust or remove the delay as needed.
+                    time.sleep(0.01)
+            
+            # Return a streaming response. The MIME type is text/plain,
+            # but you can change it to "text/event-stream" if using SSE.
+            return Response(stream_with_context(generate()), mimetype="text/plain")
+        
+        # If no question was provided, just re-render the chat messages.
         return render_template("chat_messages.html", chat_history=session["chat_history"])
-
-    # For GET requests, serve the full page
+    
+    # For GET requests, render the full page.
     return render_template("chapter_viewer.html", chapter_number=chapter_number, chat_history=session["chat_history"])
+
+
 
 
 @app.route("/logout")
