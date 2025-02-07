@@ -22,13 +22,15 @@ app.secret_key = "my_secret_key" #os.urandom(24)  # Required for session handlin
 llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)
 graph = build_graph(llm)
 
-from bookmark import initialize_bookmarks, get_page_ranges
+from bookmark import initialize_bookmarks, get_page_ranges, get_num_buttons
 
 # Textbook and page ranges
 PDF_PATH = "../data/wholeTextbookPsych.pdf"
 # Build bookmarks
 initialize_bookmarks(PDF_PATH, "../data/page_ranges.json")
 PAGE_RANGES = get_page_ranges("../data/page_ranges.json")
+sub_chapter = get_num_buttons("../data/page_ranges.json")
+print(f"num_buttons = {sub_chapter}")
 
 @app.route("/", methods=["GET"])
 def home():
@@ -103,6 +105,8 @@ def serve_chapter_pdf(chapter_number):
 # Serve the HTML page with the iframe
 @app.route("/chapter/<int:chapter_number>", methods=["GET", "POST"])
 def serve_chapter(chapter_number):
+    button_count = sub_chapter[chapter_number- 1] -1
+    print(button_count)
     # Initialize chat history if it doesn't exist
     if "chat_history" not in session:
         pre_message  = "What's your goal?" 
@@ -146,7 +150,7 @@ def serve_chapter(chapter_number):
         return render_template("chat_messages.html", chat_history=session["chat_history"])
     
     # For GET requests, render the full page.
-    return render_template("chapter_viewer.html", chapter_number=chapter_number, chat_history=session["chat_history"])
+    return render_template("chapter_viewer.html", chapter_number=chapter_number, chat_history=session["chat_history"], button_count=int(button_count))
 
 
 

@@ -149,6 +149,20 @@ def get_section_ranges_by_chapter(filepath, sckew=True, requirements={
 
     return ranges
 
+def get_num_buttons(page_range_path):
+    if not os.path.exists(page_range_path):
+        print(f"No page ranges found at {page_range_path}")
+        return None
+
+    ranges = get_section_ranges_by_chapter(page_range_path)
+
+    num_buttons = []
+
+    for chap, s_ranges in ranges.items():
+        num_buttons.append(len(s_ranges))
+
+    return num_buttons
+
 def save_section_pdf(pdf_path, page_range_path, filepath):
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     print(f"Saving section PDFs to {filepath}...")
