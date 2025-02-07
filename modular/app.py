@@ -30,54 +30,12 @@ PDF_PATH = "../data/wholeTextbookPsych.pdf"
 initialize_bookmarks(PDF_PATH, "../data/page_ranges.json")
 PAGE_RANGES = get_page_ranges("../data/page_ranges.json")
 sub_chapter = get_num_buttons("../data/page_ranges.json")
-print(f"num_buttons = {sub_chapter}")
 
 @app.route("/", methods=["GET"])
 def home():
     # Dynamically create a list of chapters based on PAGE_RANGES
     chapters = [{"number": i + 1, "start_page": start, "end_page": end} for i, (start, end) in enumerate(PAGE_RANGES)]
     return render_template("home.html", chapters=chapters)
-
-# @app.route("/", methods=["GET", "POST"])
-# def home():
-#     return redirect(url_for("chat"))
-
-@app.route("/chat", methods=["GET", "POST"])
-def chat():
-    # Initialize session variables if not present
-    if "chat_history" not in session: 
-        session["chat_history"] = []
-        
-       
-       
-    if request.method == "POST":
-        # Check the raw body to ensure it's coming in correctly
-        print("Request JSON:", request.get_json())  # Debug line to check incoming JSON
-        
-        user_question = request.json.get("message", "").strip()  # Expect JSON input
-        if user_question:  # If the question is not empty
-            
-            # Append the user's message to chat history
-            session["chat_history"].append({"sender": "user", "message": user_question})
-
-            # Generate a bot response
-            
-            bot_response = ""
-            for event in graph.stream({"messages": [("user", user_question)]}, config):
-                for value in event.values():
-                    bot_response = value["messages"][-1].content
-
-            # Append the bot's message to chat history
-            session["chat_history"].append({"sender": "bot", "message": bot_response})
-
-            # Save session to persist changes
-            session.modified = True
-
-            # Return JSON response with the latest bot message
-            return jsonify({"response": bot_response, "chat_history": session["chat_history"]})
-
-    return jsonify({"response": "ERROR", "chat_history": session["chat_history"]})
-
 
 # Serve chapter to user
 
@@ -109,7 +67,7 @@ def serve_chapter(chapter_number):
     print(button_count)
     # Initialize chat history if it doesn't exist
     if "chat_history" not in session:
-        pre_message  = "What's your goal?" 
+        pre_message  = f"Summarize briefly the main idea of chapter {chapter_number}." 
         session["chat_history"] = []
         bot_response = ""
         for event in graph.stream({"messages": [("user", pre_message)]}, config):
