@@ -5,9 +5,24 @@ from dotenv import load_dotenv
 import os
 import io
 from PyPDF2 import PdfReader, PdfWriter
+from bookmark import initialize_bookmarks, get_page_ranges
+import random
+
+#don't ask, i was bored
+emoji_pool = [
+    "🍅", "😂", "😎", "😍", "🤓", "😜", "🤩",
+    "🥳", "😇", "🤖", "👻", "👽", "😩", "🙈",
+    "🐭", "🐶", "🦊", "🐼", "🐸", "🐵", "🦫"
+]
+
+# change k value to change length of string
+thread_id = ''.join(random.choices(emoji_pool, k=7))
 
 def get_config():
-    configuration = {"configurable": {"thread_id": "🍅"}}
+    #TODO:
+        # RANDOMIZED THREAD ID FOR EACH USER.
+    
+    configuration = {"configurable": {"thread_id": thread_id}}
     return configuration
 
 config = get_config()
@@ -17,11 +32,17 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Required for session handling
+
+print("="*19 + "SECRET KEY" + "="*19)
+print(app.secret_key)
+print("="*19 + "THREAD ID" + "="*19)
+print(thread_id)
+
 # Initialize LLM and graph
 llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)
 graph = build_graph(llm)
 
-from bookmark import initialize_bookmarks, get_page_ranges
+
 
 # Textbook and page ranges
 PDF_PATH = "../data/wholeTextbookPsych.pdf"
@@ -103,8 +124,10 @@ def serve_chapter_pdf(chapter_number):
 @app.route("/chapter/<int:chapter_number>", methods=["GET", "POST"])
 def serve_chapter(chapter_number):
     if "chat_history" not in session:
+        # CHANGE TO SOMETH ELSE
         # Initially get the bot to send a message first by prompting it with a hidden message.
-        pre_message  = "What's your goal?" 
+        pre_message  = "This is a hidden message that the user can't see. Tell me how you're going to \
+            facilitate the learning experience of our users." 
         
         session["chat_history"] = []
 
