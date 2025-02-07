@@ -22,15 +22,19 @@ app.secret_key = "my_secret_key" #os.urandom(24)  # Required for session handlin
 llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)
 graph = build_graph(llm)
 
-from bookmark import initialize_bookmarks, get_page_ranges, get_num_buttons
+from bookmark import initialize_bookmarks, get_page_ranges, get_num_buttons, save_section_pdf
 
 # Textbook and page ranges
 PDF_PATH = "../data/wholeTextbookPsych.pdf"
+PAGE_RANGE_PATH = "../data/page_ranges.json"
+SECTION_PATH = "../data/sections"
 # Build bookmarks
-initialize_bookmarks(PDF_PATH, "../data/page_ranges.json")
-PAGE_RANGES = get_page_ranges("../data/page_ranges.json")
-sub_chapter = get_num_buttons("../data/page_ranges.json")
+initialize_bookmarks(PDF_PATH, PAGE_RANGE_PATH)
+PAGE_RANGES = get_page_ranges(PAGE_RANGE_PATH)
+sub_chapter = get_num_buttons(PAGE_RANGE_PATH)
 print(f"num_buttons = {sub_chapter}")
+if not os.path.exists(SECTION_PATH):
+        save_section_pdf(PDF_PATH, PAGE_RANGE_PATH, SECTION_PATH)
 
 @app.route("/", methods=["GET"])
 def home():
@@ -102,6 +106,13 @@ def serve_chapter_pdf(chapter_number):
 
     return send_file(output_pdf, as_attachment=False, mimetype="application/pdf")
 
+# Serve the section to user
+@app.route("/chapter_pdf/<int:chapter_number>/<int:section_number>", methods=["GET"])
+def serve_section_pdf(chapter_number, section_number):
+    output_pdf = f"../data/sections/chapter {chapter_number}/{section_number}.pdf"
+
+    return send_file(output_pdf, as_attachment=False, mimetype="application/pdf")
+
 # Serve the HTML page with the iframe
 @app.route("/chapter/<int:chapter_number>", methods=["GET", "POST"])
 def serve_chapter(chapter_number):
@@ -162,4 +173,4 @@ def logout():
     return render_template("home.html", chapters=chapters)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)
