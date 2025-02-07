@@ -191,3 +191,4 @@ def save_section_pdf(pdf_path, page_range_path, filepath):
 # print(get_page_ranges("../data/page_ranges.json"))
 # print(get_section_ranges_by_chapter("../data/page_ranges.json"))
 # save_section_pdf("../data/wholeTextbookPsych.pdf", "../data/page_ranges.json", "../data/sections")
+# print(get_num_buttons("../data/page_ranges.json"))
