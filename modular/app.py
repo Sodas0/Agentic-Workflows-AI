@@ -125,11 +125,11 @@ def serve_chapter(chapter_number):
 
 
 
-@app.route("/logout")
-def logout():
+@app.route("/home")
+def go_home():
     session.clear()
     chapters = [{"number": i + 1, "start_page": start, "end_page": end} for i, (start, end) in enumerate(PAGE_RANGES)]
     return render_template("home.html", chapters=chapters)
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    app.run(debug=True)
