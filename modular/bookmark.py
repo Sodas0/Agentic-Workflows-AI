@@ -172,7 +172,7 @@ def save_section_pdf(pdf_path, page_range_path, filepath):
     for chap, s_ranges in ranges.items():
         print(f"Saving {chap}'s sections...")
         os.makedirs(f"{filepath}/{chap}", exist_ok=True)
-        offset  = s_ranges[0][0]
+        i = 0
         for s_range in s_ranges:
             reader = PdfReader(pdf_path)
             writer = PdfWriter()
@@ -180,8 +180,10 @@ def save_section_pdf(pdf_path, page_range_path, filepath):
             for page_num in range(s_range[0]-1, s_range[1]):
                 writer.add_page(reader.pages[page_num])
 
-            with open(f"{filepath}/{chap}/{s_range[0]-offset}-{s_range[1]-offset}.pdf", "wb") as f:
+            with open(f"{filepath}/{chap}/{i}.pdf", "wb") as f:
                 writer.write(f)
+
+            i += 1
 
     print("Section PDFs saved")
 
