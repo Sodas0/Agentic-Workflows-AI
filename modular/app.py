@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, s
 from langchain_openai import ChatOpenAI
 from graph import build_graph
 from dotenv import load_dotenv
+from bookmark import initialize_bookmarks, get_page_ranges, get_num_buttons, save_section_pdf
 import os
 import io
 import time
@@ -22,7 +23,7 @@ app.secret_key = "my_secret_key" #os.urandom(24)  # Required for session handlin
 llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)
 graph = build_graph(llm)
 
-from bookmark import initialize_bookmarks, get_page_ranges, get_num_buttons, save_section_pdf
+
 
 # Textbook and page ranges
 PDF_PATH = "../data/wholeTextbookPsych.pdf"
@@ -32,7 +33,6 @@ SECTION_PATH = "../data/sections"
 initialize_bookmarks(PDF_PATH, PAGE_RANGE_PATH)
 PAGE_RANGES = get_page_ranges(PAGE_RANGE_PATH)
 sub_chapter = get_num_buttons(PAGE_RANGE_PATH)
-print(f"num_buttons = {sub_chapter}")
 if not os.path.exists(SECTION_PATH):
         save_section_pdf(PDF_PATH, PAGE_RANGE_PATH, SECTION_PATH)
 

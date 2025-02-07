@@ -213,6 +213,7 @@
             const buttonCount = {{ button_count }}; // Get button count from Flask
             const chapterNumber = {{ chapter_number }};
             const buttonContainer = document.getElementById("buttonContainer");
+            const pdfFrame = document.getElementById("pdf-frame");
     
             if (!buttonContainer) {
                 console.error("buttonContainer not found!");
@@ -225,6 +226,11 @@
                 const button = document.createElement("button");
                 button.classList.add("side-btn"); // Ensure correct class
                 button.textContent = chapterNumber + "." + i;
+
+                button.addEventListener("click", function() {
+                    pdfFrame.src = `/chapter_pdf/${chapterNumber}/${i}`; // Update route dynamically
+                });
+
                 buttonContainer.appendChild(button);
             }
         };
