@@ -1,8 +1,11 @@
 import json
 from langchain_core.messages import ToolMessage
 from langchain_community.tools import tool
-from retrievertool import textbook_retriever_tool
+from retrievertool import generate_retriever_tool
 from langchain_openai import ChatOpenAI
+
+
+
 class BasicToolNode:
     """
     A node that processes and executes tool requests embedded in the last AI message.
@@ -48,50 +51,21 @@ class BasicToolNode:
 
 @tool
 def generate_prelearning_quiz():
-    """Use this tool to display a pre-learning quiz for the user."""
+    """Use this tool to generate a pre-learning quiz for the user."""
     # TODO:
         # Generate a pre-learning quiz depending on the current chapter of the textbook.
         # Can use hard coded pre learning questions but that's a terrible practice, since we ultimately want to be able to switch textbooks
         # LLM maybe?
         # First, display a popup
-        
-        
     return {"action": "display_popup", "content": "Pre-learning quiz content goes here."}
-
-
-
-
-#TODO:
-  # 1. figure out the correct return type for this tool to effectively check if a message is a question
-@tool
-def is_question(message: str) -> str:
-    """Determines whether a message is a question."""
-    tempLLM = ChatOpenAI(model="gpt-4o", temperature=0)
-    messages = [
-    (
-        "system",
-        "Your task is to determine whether the given sentence is a question or not. Return 'yes' if it is, and 'no' if it isn't.",
-    ),
-    ("human", {message}),
-]
-    return tempLLM.invoke(messages) #need to return some sort of object here
-
-
-
-
-
-textbook_retriever = textbook_retriever_tool
-
 
 
     
 def get_tools():
     """
     Returns a list of tools for the chatbot.
-    """
-               
-    
-    textbook_retriever = textbook_retriever_tool
+    """    
+    textbook_retriever = generate_retriever_tool()
     
     tools = [textbook_retriever, generate_prelearning_quiz] # add is_question tool here, along with other tools yet to be designed
     return tools

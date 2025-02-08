@@ -7,9 +7,24 @@ import os
 import io
 import time
 from PyPDF2 import PdfReader, PdfWriter
+from bookmark import initialize_bookmarks, get_page_ranges
+import random
+
+#don't ask, i was bored
+emoji_pool = [
+    "🍅", "😂", "😎", "😍", "🤓", "😜", "🤩",
+    "🥳", "😇", "🤖", "👻", "👽", "😩", "🙈",
+    "🐭", "🐶", "🦊", "🐼", "🐸", "🐵", "🦫"
+]
+
+# change k value to change length of string
+thread_id = ''.join(random.choices(emoji_pool, k=7))
 
 def get_config():
-    configuration = {"configurable": {"thread_id": "🍅"}}
+    #TODO:
+        # RANDOMIZED THREAD ID FOR EACH USER.
+    
+    configuration = {"configurable": {"thread_id": thread_id}}
     return configuration
 
 config = get_config()
@@ -18,7 +33,15 @@ config = get_config()
 load_dotenv()
 
 app = Flask(__name__)
+
 app.secret_key = "my_secret_key" #os.urandom(24)  # Required for session handling
+app.secret_key = os.urandom(24)  # Required for session handling
+
+print("="*19 + "SECRET KEY" + "="*19)
+print(app.secret_key)
+print("="*19 + "THREAD ID" + "="*19)
+print(thread_id)
+
 # Initialize LLM and graph
 llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)
 graph = build_graph(llm)
@@ -79,7 +102,9 @@ def serve_chapter(chapter_number):
     print(button_count)
     # Initialize chat history if it doesn't exist
     if "chat_history" not in session:
+
         pre_message  = f"Summarize briefly the main idea of chapter {chapter_number}." 
+
         session["chat_history"] = []
         bot_response = ""
         for event in graph.stream({"messages": [("user", pre_message)]}, config):

@@ -333,7 +333,7 @@ textbook_config = retrieverConfig(
     file_store_path=ret_path,
     cluster_url="https://ca90235f-41e4-480d-8cb8-43246d130bb9.us-west-2-0.aws.cloud.qdrant.io:6333",
     qdrant_key=os.getenv("QDRANT_KEY"),
-    search_type="similarity",
+    search_type="similarity_score_threshold",
     search_kwargs={"k": 10},
     collection_name="textbook_collection" + "_" + os.getenv("NAME")
     )
@@ -358,17 +358,25 @@ chapter6_config = retrieverConfig(
 # Tool Creation
 #
 
-# textbook_retriever = retriever(textbook_config).generate_retriever()
-# chapter6_retriever = retriever(chapter6_config).generate_retriever()
-textbook_retriever = retriever(textbook_config).generate_retriever()
+
+# CODE RUNS TWICE BECAUSE OF IMPORT IN TOOLS.PY.
+# TURN GENERATING RETRIEVER INTO A FUNCTION, SO NO ARBITRARY LINES GET EXECUTED
+
+def generate_retriever_tool():
+    textbook_retriever = retriever(textbook_config).generate_retriever()
+    
+    textbook_retriever_tool = create_retriever_tool(
+        textbook_retriever,
+        "retrieve_textbook_content",
+        "Search and return information from the psychology textbook.")
+    
+    return textbook_retriever_tool
 
 
-# Create a tool for the textbook retriever
-# textbook_retriever_tool = create_retriever_tool(
-#     chapter6_retriever,
-#     "retrieve_textbook_content",
-#     "Search and return information from the psychology textbook."
-# )
+
+
+
+
 
 
 # Idea for TODO:
@@ -377,9 +385,8 @@ textbook_retriever = retriever(textbook_config).generate_retriever()
     # this would greatly help in organizing the content and making it easier to retrieve information
     # it has more to do with the generation of the parent documents than the retriever tool itself
 
-
-textbook_retriever_tool = create_retriever_tool(
-    textbook_retriever,
-    "retrieve_textbook_content",
-    "Search and return information from the psychology textbook."
-)
+# textbook_retriever_tool = create_retriever_tool(
+#     textbook_retriever,
+#     "retrieve_textbook_content",
+#     "Search and return information from the psychology textbook."
+# )
