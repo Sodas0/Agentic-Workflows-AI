@@ -335,7 +335,7 @@ textbook_config = retrieverConfig(
     qdrant_key=os.getenv("QDRANT_KEY"),
     search_type="similarity_score_threshold",
     search_kwargs={"k": 10},
-    collection_name="textbook_collection"
+    collection_name="textbook_collection" + "_" + os.getenv("NAME")
     )
 
 chapter6_config = retrieverConfig(
@@ -358,6 +358,7 @@ chapter6_config = retrieverConfig(
 # Tool Creation
 #
 
+
 # CODE RUNS TWICE BECAUSE OF IMPORT IN TOOLS.PY.
 # TURN GENERATING RETRIEVER INTO A FUNCTION, SO NO ARBITRARY LINES GET EXECUTED
 
@@ -370,6 +371,7 @@ def generate_retriever_tool():
         "Search and return information from the psychology textbook.")
     
     return textbook_retriever_tool
+
 
 
 

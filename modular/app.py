@@ -1,9 +1,11 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_file, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, send_file, jsonify, Response, stream_with_context
 from langchain_openai import ChatOpenAI
 from graph import build_graph
 from dotenv import load_dotenv
+from bookmark import initialize_bookmarks, get_page_ranges, get_num_buttons, save_section_pdf
 import os
 import io
+import time
 from PyPDF2 import PdfReader, PdfWriter
 from bookmark import initialize_bookmarks, get_page_ranges
 import random
@@ -31,6 +33,8 @@ config = get_config()
 load_dotenv()
 
 app = Flask(__name__)
+
+app.secret_key = "my_secret_key" #os.urandom(24)  # Required for session handling
 app.secret_key = os.urandom(24)  # Required for session handling
 
 print("="*19 + "SECRET KEY" + "="*19)
@@ -46,56 +50,20 @@ graph = build_graph(llm)
 
 # Textbook and page ranges
 PDF_PATH = "../data/wholeTextbookPsych.pdf"
+PAGE_RANGE_PATH = "../data/page_ranges.json"
+SECTION_PATH = "../data/sections"
 # Build bookmarks
-initialize_bookmarks(PDF_PATH, "../data/page_ranges.json")
-PAGE_RANGES = get_page_ranges("../data/page_ranges.json")
+initialize_bookmarks(PDF_PATH, PAGE_RANGE_PATH)
+PAGE_RANGES = get_page_ranges(PAGE_RANGE_PATH)
+sub_chapter = get_num_buttons(PAGE_RANGE_PATH)
+if not os.path.exists(SECTION_PATH):
+        save_section_pdf(PDF_PATH, PAGE_RANGE_PATH, SECTION_PATH)
 
 @app.route("/", methods=["GET"])
 def home():
     # Dynamically create a list of chapters based on PAGE_RANGES
     chapters = [{"number": i + 1, "start_page": start, "end_page": end} for i, (start, end) in enumerate(PAGE_RANGES)]
     return render_template("home.html", chapters=chapters)
-
-# @app.route("/", methods=["GET", "POST"])
-# def home():
-#     return redirect(url_for("chat"))
-
-@app.route("/chat", methods=["GET", "POST"])
-def chat():
-    # Initialize session variables if not present
-    if "chat_history" not in session: 
-        session["chat_history"] = []
-        
-       
-       
-    if request.method == "POST":
-        # Check the raw body to ensure it's coming in correctly
-        print("Request JSON:", request.get_json())  # Debug line to check incoming JSON
-        
-        user_question = request.json.get("message", "").strip()  # Expect JSON input
-        if user_question:  # If the question is not empty
-            
-            # Append the user's message to chat history
-            session["chat_history"].append({"sender": "user", "message": user_question})
-
-            # Generate a bot response
-            
-            bot_response = ""
-            for event in graph.stream({"messages": [("user", user_question)]}, config):
-                for value in event.values():
-                    bot_response = value["messages"][-1].content
-
-            # Append the bot's message to chat history
-            session["chat_history"].append({"sender": "bot", "message": bot_response})
-
-            # Save session to persist changes
-            session.modified = True
-
-            # Return JSON response with the latest bot message
-            return jsonify({"response": bot_response, "chat_history": session["chat_history"]})
-
-    return jsonify({"response": "ERROR", "chat_history": session["chat_history"]})
-
 
 # Serve chapter to user
 
@@ -120,51 +88,70 @@ def serve_chapter_pdf(chapter_number):
 
     return send_file(output_pdf, as_attachment=False, mimetype="application/pdf")
 
+# Serve the section to user
+@app.route("/chapter_pdf/<int:chapter_number>/<int:section_number>", methods=["GET"])
+def serve_section_pdf(chapter_number, section_number):
+    output_pdf = f"../data/sections/chapter {chapter_number}/{section_number}.pdf"
+
+    return send_file(output_pdf, as_attachment=False, mimetype="application/pdf")
+
 # Serve the HTML page with the iframe
 @app.route("/chapter/<int:chapter_number>", methods=["GET", "POST"])
 def serve_chapter(chapter_number):
+    button_count = sub_chapter[chapter_number- 1] -1
+    print(button_count)
+    # Initialize chat history if it doesn't exist
     if "chat_history" not in session:
-        # CHANGE TO SOMETH ELSE
-        # Initially get the bot to send a message first by prompting it with a hidden message.
-        pre_message  = "This is a hidden message that the user can't see. Tell me how you're going to \
-            facilitate the learning experience of our users." 
-        
-        session["chat_history"] = []
 
+        pre_message  = f"Summarize briefly the main idea of chapter {chapter_number}." 
+
+        session["chat_history"] = []
         bot_response = ""
         for event in graph.stream({"messages": [("user", pre_message)]}, config):
             for value in event.values():
                 bot_response = value["messages"][-1].content
-
-
-        # Append the bot's message to chat history
         session["chat_history"].append({"sender": "bot", "message": bot_response})
-        print(session["chat_history"])
     
-
+    # Handle POST (user message) requests.
     if request.method == "POST":
         user_question = request.form.get("question", "").strip()
         if user_question:
             session["chat_history"].append({"sender": "user", "message": user_question})
-            # TODO:
-                # configure thread_id to individual users (or create a new thread ID per reload for simplicity)
+            
+            def generate():
+                # First, accumulate the final bot response.
+                final_response = ""
+                for event in graph.stream({"messages": [("user", user_question)]}, config):
+                    for value in event.values():
+                        # Overwrite with the latest content from the event.
+                        final_response = value["messages"][-1].content
+                print("Final bot response:", final_response)
                 
-            bot_response = ""
-            for event in graph.stream({"messages": [("user", user_question)]}, config):
-                for value in event.values():
-                    bot_response = value["messages"][-1].content
-            session["chat_history"].append({"sender": "bot", "message": bot_response})
-            session.modified = True
+                # Update session with the final response.
+                session["chat_history"].append({"sender": "bot", "message": final_response})
+                session.modified = True
 
-        # Render only the chat messages as a response for AJAX
+                # Now, stream out the final response gradually.
+                for char in final_response:
+                    yield char
+                    # Adjust or remove the delay as needed.
+                    time.sleep(0.01)
+            
+            # Return a streaming response. The MIME type is text/plain,
+            # but you can change it to "text/event-stream" if using SSE.
+            return Response(stream_with_context(generate()), mimetype="text/plain")
+        
+        # If no question was provided, just re-render the chat messages.
         return render_template("chat_messages.html", chat_history=session["chat_history"])
+    
+    # For GET requests, render the full page.
+    return render_template("chapter_viewer.html", chapter_number=chapter_number, chat_history=session["chat_history"], button_count=int(button_count))
 
-    # For GET requests, serve the full page
-    return render_template("chapter_viewer.html", chapter_number=chapter_number, chat_history=session["chat_history"])
 
 
-@app.route("/logout")
-def logout():
+
+@app.route("/home")
+def go_home():
     session.clear()
     chapters = [{"number": i + 1, "start_page": start, "end_page": end} for i, (start, end) in enumerate(PAGE_RANGES)]
     return render_template("home.html", chapters=chapters)

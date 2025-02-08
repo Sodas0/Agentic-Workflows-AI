@@ -149,6 +149,20 @@ def get_section_ranges_by_chapter(filepath, sckew=True, requirements={
 
     return ranges
 
+def get_num_buttons(page_range_path):
+    if not os.path.exists(page_range_path):
+        print(f"No page ranges found at {page_range_path}")
+        return None
+
+    ranges = get_section_ranges_by_chapter(page_range_path)
+
+    num_buttons = []
+
+    for chap, s_ranges in ranges.items():
+        num_buttons.append(len(s_ranges))
+
+    return num_buttons
+
 def save_section_pdf(pdf_path, page_range_path, filepath):
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     print(f"Saving section PDFs to {filepath}...")
@@ -158,7 +172,7 @@ def save_section_pdf(pdf_path, page_range_path, filepath):
     for chap, s_ranges in ranges.items():
         print(f"Saving {chap}'s sections...")
         os.makedirs(f"{filepath}/{chap}", exist_ok=True)
-        offset  = s_ranges[0][0]
+        i = 0
         for s_range in s_ranges:
             reader = PdfReader(pdf_path)
             writer = PdfWriter()
@@ -166,8 +180,10 @@ def save_section_pdf(pdf_path, page_range_path, filepath):
             for page_num in range(s_range[0]-1, s_range[1]):
                 writer.add_page(reader.pages[page_num])
 
-            with open(f"{filepath}/{chap}/{s_range[0]-offset}-{s_range[1]-offset}.pdf", "wb") as f:
+            with open(f"{filepath}/{chap}/{i}.pdf", "wb") as f:
                 writer.write(f)
+
+            i += 1
 
     print("Section PDFs saved")
 
@@ -177,3 +193,4 @@ def save_section_pdf(pdf_path, page_range_path, filepath):
 # print(get_page_ranges("../data/page_ranges.json"))
 # print(get_section_ranges_by_chapter("../data/page_ranges.json"))
 # save_section_pdf("../data/wholeTextbookPsych.pdf", "../data/page_ranges.json", "../data/sections")
+# print(get_num_buttons("../data/page_ranges.json"))
