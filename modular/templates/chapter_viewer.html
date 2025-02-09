@@ -1,13 +1,19 @@
+<!-- templates/chapter_viewer.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Chapter Viewer</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-
   <style>
-    /* -- 1 PDF/Chat Layout -- */
-    * { box-sizing: border-box; }
+    /* 
+      ======================
+      GENERAL PAGE STYLING
+      ======================
+    */
+    * {
+      box-sizing: border-box;
+    }
     body {
       margin: 0;
       display: flex;
@@ -18,11 +24,18 @@
       justify-content: center;
       align-items: center;
     }
+
+    /* 
+      ======================
+      MAIN CONTAINER
+      ======================
+    */
     .container {
       display: flex;
       width: 100%;
       height: 90%;
       transition: all 0.3s ease-in-out;
+      position: relative; /* for absolute-positioned items like .toggle-pdf-button */
     }
     .pdf-container {
       width: 0;
@@ -32,7 +45,7 @@
       padding: 20px;
       border-radius: 15px;
       box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
-      display: none;
+      display: none; /* toggled via JS */
       transition: width 0.3s ease-in-out;
     }
     .chat-container {
@@ -47,7 +60,14 @@
       padding: 20px;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
       transition: width 0.3s ease-in-out;
+      position: relative;
     }
+
+    /*
+      ======================
+      PDF + CHAT ELEMENTS
+      ======================
+    */
     #chat-box {
       flex-grow: 1;
       overflow-y: auto;
@@ -111,14 +131,23 @@
       height: 100%;
       border: none;
     }
+
+    /*
+      ======================
+      BUTTON SIDEBAR
+      ======================
+    */
     .button-sidebar {
-      position: absolute;
-      left: 70px;
-      top: 50px;
+      position: fixed;  /* Pin to viewport, not parent container */
+      left: 20px;       /* Distance from left edge */
+      top: 100px;       /* Distance from top */
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 10px;        /* Space between buttons */
+      z-index: 999;     /* Ensure it appears above other elements */
     }
+    
+    /* Buttons inside the sidebar */
     .side-btn {
       width: 40px;
       height: 40px;
@@ -130,11 +159,18 @@
       transition: all 0.3s ease-in-out;
       box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
     }
+    
     .side-btn:hover {
       background: linear-gradient(to right, #2f80ed, #56ccf2);
       transform: translateX(5px);
       box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.3);
     }
+
+    /* 
+      ======================
+      CHAT MESSAGE STYLES
+      ======================
+    */
     .bot-message {
       text-align: left;
       background-color: #e0e0e0;
@@ -153,7 +189,41 @@
       max-width: 60%;
     }
 
-    /* -- 2) Quiz Modal -- */
+    /*
+      ======================
+      LOCKED BUTTON STYLES
+      ======================
+    */
+    .side-btn.locked {
+      opacity: 0.6;
+      cursor: not-allowed;
+      position: relative;
+    }
+    .side-btn.locked::before {
+      content: "🔒 ";
+      font-weight: bold;
+    }
+    .side-btn.locked:hover::after {
+      content: "Please complete the quiz first!";
+      position: absolute;
+      top: 50%;
+      left: 110%;
+      transform: translateY(-50%);
+      background: #333;
+      color: #fff;
+      padding: 5px 8px;
+      border-radius: 3px;
+      white-space: nowrap;
+      font-size: 0.9rem;
+      pointer-events: none;
+      opacity: 0.9;
+    }
+
+    /*
+      ======================
+      QUIZ MODAL
+      ======================
+    */
     .modal {
       display: none;
       position: fixed;
@@ -185,7 +255,6 @@
       display: block;
       padding: 10px;
       cursor: pointer;
-      text-align: left;
     }
     .nav-buttons {
       display: flex;
@@ -199,26 +268,46 @@
       width: 100%;
       cursor: pointer;
     }
+    .progress-container {
+      width: 100%;
+      background-color: #e0e0e0;
+      border-radius: 8px;
+      margin: 10px 0;
+      height: 15px;
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 0%; /* start at 0% width */
+      background: linear-gradient(to right, #f2994a, #f2c94c);
+      transition: width 0.3s ease;
+    }
   </style>
 </head>
 <body>
 
-  <!-- Toggle PDF Button -->
+  <!-- Button to toggle PDF Viewer -->
   <button class="toggle-pdf-button" onclick="togglePDF()">Toggle PDF Viewer</button>
 
-  <!-- PDF/Chat Container -->
   <div class="container">
+    <!-- PDF Container -->
     <div class="pdf-container" id="pdf-container">
       <iframe src="/chapter_pdf/{{ chapter_number }}" id="pdf-frame"></iframe>
     </div>
 
+    <!-- Chat Container -->
     <div class="chat-container" id="chat-container">
       <div class="button-sidebar" id="buttonContainer"></div>
-      
+
+      <!-- Home Button -->
       <form action="/home" method="get">
         <button type="submit" class="def-btn">Home</button>
       </form>
+
       <h2 class="text-center">BeaverBot Tutoring</h2>
+
+      <!-- Chat Messages Box -->
       <div id="chat-box" class="chat-box">
         {% for entry in chat_history %}
           <div class="message {% if entry.sender == 'user' %}user-message{% else %}bot-message{% endif %}">
@@ -226,25 +315,39 @@
           </div>
         {% endfor %}
       </div>
+
+      <!-- Chat Form -->
       <form action="/chapter/{{ chapter_number }}" method="post">
         <div class="input-group mt-3">
-          <input type="text" name="question" id="question" class="form-control"
-                 placeholder="Type your question..." autocomplete="off" required>
+          <input
+            type="text"
+            name="question"
+            id="question"
+            class="form-control"
+            placeholder="Type your question..."
+            autocomplete="off"
+            required
+          >
           <button class="btn-send">Send</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Start Quiz Button -->
-  <button 
+  <!-- Button to Start Quiz -->
+  <button
     style="
-      position:absolute; top:70px; right:20px; padding:10px 15px;
-      border:none; border-radius:5px;
+      position:absolute;
+      top:70px;
+      right:20px;
+      padding:10px 15px;
+      border:none;
+      border-radius:5px;
       background: linear-gradient(to right, #f2994a, #f2c94c);
-      color:#fff; cursor:pointer;
+      color:#fff;
+      cursor:pointer;
     "
-    onclick="openModal()">
+    onclick="startQuiz()">
     Start Quiz
   </button>
 
@@ -253,6 +356,10 @@
     <div class="modal-content">
       <span class="close" onclick="closeModal()">&times;</span>
       <h2 id="questionText"></h2>
+      <div class="progress-container">
+        <div class="progress-bar" id="quizProgressBar"></div>
+      </div>
+      
       <div class="quiz-options" id="quizOptions"></div>
 
       <div class="nav-buttons">
@@ -263,37 +370,63 @@
     </div>
   </div>
 
-  <!-- Scripts -->
   <script>
-    // Populate sub-chapter buttons
+    // Server-side dictionary of sub-chapter quizzes if chapter_number=6, else empty
+    let ch6_quizzes = {{ ch6_quizzes | tojson }};
+
+    // Track which sub-chapter the user last clicked
+    let currentSubChapter = 0;
+    let subChapterQuizCompleted = [];
+
+    // On page load, create sub-chapter buttons and lock them except the first
     window.onload = function() {
       const buttonCount = {{ button_count }};
       const chapterNumber = {{ chapter_number }};
       const buttonContainer = document.getElementById("buttonContainer");
       const pdfFrame = document.getElementById("pdf-frame");
 
-      if (!buttonContainer) {
-        console.error("buttonContainer not found!");
-        return;
-      }
-      buttonContainer.innerHTML = '';
+      subChapterQuizCompleted = new Array(buttonCount).fill(false);
 
-      for (let i = 1; i <= buttonCount; i++) {
-        const button = document.createElement("button");
-        button.classList.add("side-btn");
-        button.textContent = chapterNumber + "." + i;
-        button.addEventListener("click", function() {
-          pdfFrame.src = `/chapter_pdf/${chapterNumber}/${i}`;
+      // ====== NEW: If it's chapter 6 and there's at least one sub-chapter,
+      // automatically load sub-chapter 6.1 in the PDF.
+      if (chapterNumber == 6 && buttonCount > 0) {
+        pdfFrame.src = `/chapter_pdf/${chapterNumber}/1`;
+        currentSubChapter = 0; 
+      }
+
+      for (let i = 0; i < buttonCount; i++) {
+        const label = chapterNumber + "." + (i + 1);
+        const btn = document.createElement("button");
+        btn.classList.add("side-btn");
+        btn.textContent = label;
+
+        // Lock all sub-chapters except the first
+        if (i > 0) {
+          btn.disabled = true;
+          btn.classList.add("locked");
+        }
+
+        btn.addEventListener("click", (event) => {
+          // If locked, do nothing (or show a popup)
+          if (btn.disabled) {
+            event.preventDefault();
+            // Optional popup:
+            // alert("You must complete the quiz for the previous sub-chapter first!");
+            return;
+          }
+          // If unlocked, load the PDF
+          pdfFrame.src = `/chapter_pdf/${chapterNumber}/${i+1}`;
+          currentSubChapter = i;
         });
-        buttonContainer.appendChild(button);
+
+        buttonContainer.appendChild(btn);
       }
     };
 
-    // Toggle PDF
+    // Toggle PDF viewer
     function togglePDF() {
       const pdfContainer = document.getElementById('pdf-container');
       const chatContainer = document.getElementById('chat-container');
-      
       const pdfStyles = window.getComputedStyle(pdfContainer);
       const currentDisplay = pdfStyles.display;
       const currentWidth = pdfStyles.width;
@@ -311,7 +444,7 @@
       }
     }
 
-    // Handle Chat streaming
+    // Chat streaming
     document.querySelector('form[action^="/chapter/"]').addEventListener('submit', async (event) => {
       event.preventDefault();
       const form = event.target;
@@ -321,10 +454,10 @@
       const chatBox = document.getElementById('chat-box');
 
       if (userQuestion) {
-        const userMessageDiv = document.createElement('div');
-        userMessageDiv.classList.add('message', 'user-message');
-        userMessageDiv.innerHTML = `<strong>User:</strong> ${userQuestion}`;
-        chatBox.appendChild(userMessageDiv);
+        const userMsg = document.createElement('div');
+        userMsg.classList.add('message', 'user-message');
+        userMsg.innerHTML = `<strong>User:</strong> ${userQuestion}`;
+        chatBox.appendChild(userMsg);
       }
       inputField.value = '';
 
@@ -334,10 +467,10 @@
           body: formData,
         });
         if (response.ok) {
-          const botMessageDiv = document.createElement('div');
-          botMessageDiv.classList.add('message', 'bot-message');
-          botMessageDiv.innerHTML = `<strong>Bot:</strong> `;
-          chatBox.appendChild(botMessageDiv);
+          const botMsg = document.createElement('div');
+          botMsg.classList.add('message', 'bot-message');
+          botMsg.innerHTML = `<strong>Bot:</strong> `;
+          chatBox.appendChild(botMsg);
 
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
@@ -346,7 +479,7 @@
             const { value, done: doneReading } = await reader.read();
             done = doneReading;
             const chunk = decoder.decode(value, { stream: !done });
-            botMessageDiv.innerHTML += chunk;
+            botMsg.innerHTML += chunk;
             chatBox.scrollTop = chatBox.scrollHeight;
           }
         } else {
@@ -357,10 +490,29 @@
       }
     });
 
-    // Quiz Logic
-    let quiz = {{ quiz | tojson }};
+    /*
+      ==========================
+      QUIZ LOGIC (startQuiz, loadQuestion, etc.)
+      ==========================
+    */
+    let quiz = [];
     let currentQuestionIndex = 0;
-    let answers = Array(quiz.length).fill(null);
+    let answers = [];
+
+    function startQuiz() {
+      // Load the quiz for the current sub-chapter
+      let subChapterQuiz = ch6_quizzes[currentSubChapter] || [];
+      quiz = subChapterQuiz;
+      currentQuestionIndex = 0;
+      answers = Array(quiz.length).fill(null);
+
+      // If there's no quiz, show alert
+      if (quiz.length === 0) {
+        alert("No quiz available for this sub-chapter!");
+        return;
+      }
+      openModal();
+    }
 
     function openModal() {
       document.getElementById("quizModal").style.display = "block";
@@ -369,6 +521,7 @@
     function closeModal() {
       document.getElementById("quizModal").style.display = "none";
     }
+
     function loadQuestion() {
       let questionData = quiz[currentQuestionIndex];
       document.getElementById("questionText").innerText = questionData.question;
@@ -396,31 +549,64 @@
       document.getElementById("nextButton").disabled = (currentQuestionIndex === quiz.length - 1);
       document.getElementById("submitQuiz").style.display =
         (currentQuestionIndex === quiz.length - 1) ? "block" : "none";
+      
+      updateProgressBar();
     }
+
+    function updateProgressBar() {
+      const total = quiz.length;
+      const progressPercentage = (currentQuestionIndex / total) * 100;
+      const barEl = document.getElementById("quizProgressBar");
+      barEl.style.width = progressPercentage + "%";
+    }
+
     function nextQuestion() {
       if (currentQuestionIndex < quiz.length - 1) {
         currentQuestionIndex++;
         loadQuestion();
       }
     }
+
     function prevQuestion() {
       if (currentQuestionIndex > 0) {
         currentQuestionIndex--;
         loadQuestion();
       }
     }
+
     function submitQuiz() {
+      // Send subchapter + answers to /submit-answer
       fetch("/submit-answer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers: answers })
+        body: JSON.stringify({
+          subchapter: currentSubChapter,
+          answers: answers
+        })
       })
       .then(response => response.json())
       .then(data => {
         alert("Quiz submitted!");
+        console.log("evaluation:", data.evaluation);
+
+        // Mark this sub-chapter as completed
+        subChapterQuizCompleted[currentSubChapter] = true;
+        // Unlock the next sub-chapter
+        unlockNextSubChapter(currentSubChapter);
+
         closeModal();
       })
       .catch(error => console.error("Error:", error));
+    }
+
+    function unlockNextSubChapter(index) {
+      const nextIndex = index + 1;
+      const buttonContainer = document.getElementById("buttonContainer");
+      if (nextIndex < buttonContainer.children.length) {
+        const nextBtn = buttonContainer.children[nextIndex];
+        nextBtn.disabled = false;
+        nextBtn.classList.remove("locked");
+      }
     }
   </script>
 </body>

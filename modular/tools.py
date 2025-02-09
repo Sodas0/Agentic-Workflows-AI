@@ -3,7 +3,7 @@ from langchain_core.messages import ToolMessage
 from langchain_community.tools import tool
 from retrievertool import generate_retriever_tool
 from langchain_openai import ChatOpenAI
-
+from langgraph.prebuilt import create_react_agent
 
 
 class BasicToolNode:
@@ -38,27 +38,52 @@ class BasicToolNode:
                 )
             )
         return {"messages": outputs}
-
-
+    
+# ==========================================================================================
 # Easily modify this list of tools to add or remove tools from the single agent.
 # We can also add new agents with their own tools, as long as we route them properly in the workflow.
 # Look at the example below to see how a tool is defined.
+
+# [TEST]
+# def sum(x,y):
+#     z = x+y 
+#     print("wtf")
+#     return z
 # @tool
 # def add(a: int, b: int) -> int:
 #     """Use this tool to add two numbers."""
-#     return a + b
+#     return sum(a,b)
+# ==========================================================================================
 
 
-@tool
-def generate_prelearning_quiz():
-    """Use this tool to generate a pre-learning quiz for the user."""
-    # TODO:
-        # Generate a pre-learning quiz depending on the current chapter of the textbook.
-        # Can use hard coded pre learning questions but that's a terrible practice, since we ultimately want to be able to switch textbooks
-        # LLM maybe?
-        # First, display a popup
-    return {"action": "display_popup", "content": "Pre-learning quiz content goes here."}
+# No @tool decorator required. Simply call function in app.py when needed.
+def evaluate_quiz_answers(quiz, answers):
+    # PADDY TODO:
+        # Render the bot_response in the chatbox after the quiz has been submitted. 
+        # I've got you started, and right now, it just prints the responses after taking the quiz to the terminal where 
+        # you run the server.
+    
+    tools = []
+    llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)    
+    graph = create_react_agent(llm, tools)
 
+    print(quiz)
+    print(answers)
+
+
+    pre_message  = f"You are an quiz evaluator for a psychology textbook. Based on the following psychology questions, evaluate the user's answers.\
+                    Be optimistic in your responses and specifically ask if they need help on anything.\
+                    USER QUIZ: {quiz}. USER ANSWERS: {answers}. Make sure to address every single question." 
+
+    print(pre_message)
+    config = {"thread_id":"🦫"}
+    
+    agent_response = ""
+    for event in graph.stream({"messages": [("user", pre_message)]}, config):
+        for value in event.values():
+            agent_response = value["messages"][-1].content
+    
+    return agent_response
 
     
 def get_tools():
@@ -67,6 +92,6 @@ def get_tools():
     """    
     textbook_retriever = generate_retriever_tool()
     
-    tools = [textbook_retriever, generate_prelearning_quiz] # add is_question tool here, along with other tools yet to be designed
+    tools = [textbook_retriever] 
     return tools
 

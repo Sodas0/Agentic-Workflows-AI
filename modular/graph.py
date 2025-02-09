@@ -19,7 +19,9 @@ systemPrompt = SystemMessage(
         and aligned with the information in the textbook. Your goal is to break down complex concepts into manageable parts, clarify \
         difficult topics, and promote a deeper understanding of the subject matter. Maintain a helpful, professional, and encouraging \
         tone in all interactions to foster a positive learning environment. Follow these guidelines precisely to provide the best possible \
-        support for the student's learning journey."
+        support for the student's learning journey.\
+        As part of your first message to the user, mention that they will take a quiz to assess their current understanding after reading each\
+        chapter, and that they can do so by clicking on the quiz button."
 
         # TODO: 
             # Let the system prompt know what chapter the user is currently on.
