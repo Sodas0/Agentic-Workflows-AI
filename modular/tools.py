@@ -73,7 +73,8 @@ def evaluate_quiz_answers(quiz, answers):
 
     pre_message  = f"You are an quiz evaluator for a psychology textbook. Based on the following psychology questions, evaluate the user's answers.\
                     Be optimistic in your responses and specifically ask if they need help on anything.\
-                    USER QUIZ: {quiz}. USER ANSWERS: {answers}. Make sure to address every single question." 
+                    USER QUIZ: {quiz}. USER ANSWERS: {answers}. Make sure to address every single question. Under all circumstances, you need to address\
+                    every single question and answer that the user submitted. ALWAYS RETURN ALL ANSWERS." 
 
     print(pre_message)
     config = {"thread_id":"🦫"}

@@ -387,7 +387,7 @@
 
       subChapterQuizCompleted = new Array(buttonCount).fill(false);
 
-      // ====== NEW: If it's chapter 6 and there's at least one sub-chapter,
+      
       // automatically load sub-chapter 6.1 in the PDF.
       if (chapterNumber == 6 && buttonCount > 0) {
         pdfFrame.src = `/chapter_pdf/${chapterNumber}/1`;

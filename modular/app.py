@@ -9,7 +9,7 @@ import os
 import io
 import time
 
-# 1) Import your quiz tool:
+# 1) Import quiz tool:
 from tools import evaluate_quiz_answers
 
 # 2) Import from data.py
