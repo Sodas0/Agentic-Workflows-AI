@@ -1,8 +1,11 @@
+from gevent import monkey
+monkey.patch_all()
 from flask import Flask, render_template, request, redirect, url_for, session, send_file, jsonify, Response, stream_with_context
 from langchain_openai import ChatOpenAI
 from graph import build_graph
 from dotenv import load_dotenv
 from bookmark import initialize_bookmarks, get_page_ranges, get_num_buttons, save_section_pdf
+
 import os
 import io
 import time
