@@ -227,7 +227,7 @@
     .modal {
       display: none;
       position: fixed;
-      z-index: 9999;
+      z-index: 9998;
       left: 0;
       top: 0;
       width: 100%;
@@ -283,10 +283,90 @@
       background: linear-gradient(to right, #f2994a, #f2c94c);
       transition: width 0.3s ease;
     }
+    /* Container for the dropdown banner */
+    #dropdown-banner {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #2C3E50;
+      color: white;
+      border-radius: 10px;
+      padding: 20px;
+      width: 300px;
+      box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+      z-index: 9999;
+      font-family: 'Arial', sans-serif;
+      display: none; /* Hidden by default */
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    #dropdown-banner.show {
+      opacity: 1;
+    }
+
+    /* Header section of the dropdown */
+    .dropdown-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #34495E;
+      padding-bottom: 10px;
+    }
+
+    .dropdown-header h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      color: #E74C3C;
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .close-btn:hover {
+      color: #C0392B;
+    }
+
+    /* Body section of the dropdown */
+    .dropdown-body {
+      padding-top: 10px;
+    }
+
+    .score {
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    .feedback-list {
+      list-style-type: none;
+      padding: 0;
+    }
+
+    .feedback-list li {
+      font-size: 14px;
+      padding: 5px 0;
+    }
+
+    .feedback-list li:before {
+      content: "✔️ ";
+      color: #1ABC9C;
+      margin-right: 5px;
+    }
+
+    /* Smooth transition effects */
+    #dropdown-banner.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
   </style>
 </head>
 <body>
-
   <!-- Button to toggle PDF Viewer -->
   <button class="toggle-pdf-button" onclick="togglePDF()">Toggle PDF Viewer</button>
 
@@ -372,7 +452,7 @@
 
   <script>
     // Server-side dictionary of sub-chapter quizzes if chapter_number=6, else empty
-    let ch6_quizzes = {{ ch6_quizzes | tojson }};
+    let ch6_quizzes = JSON.parse('{{ ch6_quizzes | tojson | escape }}');
 
     // Track which sub-chapter the user last clicked
     let currentSubChapter = 0;
@@ -380,8 +460,8 @@
 
     // On page load, create sub-chapter buttons and lock them except the first
     window.onload = function() {
-      const buttonCount = {{ button_count }};
-      const chapterNumber = {{ chapter_number }};
+      const buttonCount = JSON.parse('{{ button_count }}');
+      const chapterNumber = JSON.parse('{{ chapter_number }}');
       const buttonContainer = document.getElementById("buttonContainer");
       const pdfFrame = document.getElementById("pdf-frame");
 
@@ -587,16 +667,51 @@
       .then(response => response.json())
       .then(data => {
         alert("Quiz submitted!");
-        console.log("evaluation:", data.evaluation);
+        // console.log("evaluation:", data.evaluation);
 
         // Mark this sub-chapter as completed
         subChapterQuizCompleted[currentSubChapter] = true;
         // Unlock the next sub-chapter
         unlockNextSubChapter(currentSubChapter);
+        // Call the function to display results in a dropdown
+        displayResultsInDropdown(data);
 
         closeModal();
       })
       .catch(error => console.error("Error:", error));
+    }
+    // Function to display results in a dropdown banner
+    function displayResultsInDropdown(data) {
+      let dropdownBanner = document.getElementById('dropdown-banner');
+      if (!dropdownBanner) {
+        dropdownBanner = document.createElement('div');
+        dropdownBanner.id = 'dropdown-banner';
+        document.body.appendChild(dropdownBanner);
+      }
+
+      // Ensure it's visible
+      dropdownBanner.style.display = 'block'; // Ensure display is set to block
+      dropdownBanner.classList.add('show'); // This will trigger the opacity transition
+
+      // Populate the dropdown with content
+      dropdownBanner.innerHTML = `
+        <div class="dropdown-header">
+          <h3>Quiz Results</h3>
+          <button class="close-btn" onclick="closeDropdown()">×</button>
+        </div>
+        <div class="dropdown-body">
+          <div class="score">Score: ${data.score}%</div>
+          <ul class="feedback-list">
+            ${data.feedback.map(item => `<li>${item}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    function closeDropdown() {
+      let dropdownBanner = document.getElementById('dropdown-banner');
+      dropdownBanner.style.display = 'none'; // Hide the dropdown
+      dropdownBanner.classList.remove('show'); // Remove the show class for fade-out effect
     }
 
     function unlockNextSubChapter(index) {

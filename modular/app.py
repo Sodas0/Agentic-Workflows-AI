@@ -216,14 +216,16 @@ def submit_answers():
         print(f"Evaluating quiz for sub-chapter index {subchapter_idx}: {the_quiz}")
 
         # 3) Evaluate with the tool
-        evaluation_result = evaluate_quiz_answers(the_quiz, submitted_answers)
-        print("Tool response from LLM:", evaluation_result)
+        evaluation_response, score, total_questions, feedback, correct_answers = evaluate_quiz_answers(the_quiz, submitted_answers)
+        print("Tool response from LLM:", evaluation_response)
 
         # 4) Return JSON back to the frontend
         return jsonify({
             "message": "Quiz submitted successfully!",
-            "answers": answers,
-            "evaluation": evaluation_result
+            "answers": correct_answers,
+            "score": score,
+            "total_questions": total_questions,
+            "feedback": feedback
         })
 
     return jsonify({"error": "Invalid submission"}), 400
