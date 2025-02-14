@@ -19,6 +19,7 @@ from qdrant_client.http.models import Distance, VectorParams
 import os
 from dotenv import load_dotenv
 from tqdm import tqdm
+import bookmark
 
 # Load environment variables
 env_path = os.path.join(os.path.dirname(__file__), ".env")
@@ -49,7 +50,7 @@ os.environ["OPENAI_API_KEY"] = api_key  # Ensure it's in os.environ for librarie
 
 class retrieverConfig:
     def __init__(
-            self, pdoc_filepath, pdf_filepath, pdoc_output_dir,
+            self, pdoc_filepath, pdf_filepath, page_range_path, pdoc_output_dir,
             page_ranges, starting_chapter, file_store_path, 
             cluster_url, qdrant_key, search_type, search_kwargs,
             collection_name
@@ -57,6 +58,7 @@ class retrieverConfig:
             ):
         self.pdoc_filepath = pdoc_filepath
         self.pdf_filepath = pdf_filepath
+        self.page_range_path = page_range_path
         self.pdoc_output_dir = pdoc_output_dir
         self.page_ranges = page_ranges
         self.starting_chapter = starting_chapter
@@ -73,6 +75,7 @@ class retriever:
     def __init__(self, config: retrieverConfig):
         self.pdoc_filepath = config.pdoc_filepath
         self.pdf_filepath = config.pdf_filepath
+        self.page_range_path = config.page_range_path
         self.pdoc_output_dir = config.pdoc_output_dir
         self.page_ranges = config.page_ranges
         self.starting_chapter = config.starting_chapter
@@ -107,14 +110,20 @@ class retriever:
         def split_documents(self, documents):
             parent_docs=[]
             chunk_count = 0
+
             for doc in documents:
                 chunks = self.split_text(doc.page_content)
+                page_num = doc.metadata["page"]
+                chapter = doc.metadata["chapter"]        
+                section = doc.metadata["section"]
+                
+                chunk_data = f"Chapter: {chapter}\nSection: {section}\nPage: {page_num}\n"
 
                 for chunk_num, chunk in enumerate(chunks, start=1):
                     doc.metadata["chunk_num"] = chunk_num + chunk_count
                     parent_docs.append(
                         Document(
-                            page_content=chunk,
+                            page_content= f"{chunk_data} {chunk}",
                             metadata=doc.metadata
                         )
                     )
@@ -183,6 +192,11 @@ class retriever:
             # Creates parent documents with a large and complete context
             parent_docs = []
 
+            # Gets section ranges
+            if not os.path.exists(self.page_range_path):
+                bookmark.initialize_bookmarks(self.pdf_filepath, self.page_range_path)
+            section_ranges = bookmark.get_section_ranges_by_chapter(self.page_range_path, sckew=True, exclude=False)
+
             last_chap = self.starting_chapter + self.num_chaps
 
             for i in range(self.starting_chapter,last_chap):
@@ -191,11 +205,15 @@ class retriever:
                 full_chapter = loader.load()
 
                 for page_num,document in enumerate(full_chapter,start=1):
+                    section_num = 0
+                    for idx, section in enumerate(section_ranges[f"Chapter {i}"]):
+                        if page_num in range(section[0],section[1]+1):
+                            section_num = idx
+
                     parent_docs.append(
                         Document(
                             page_content=document.page_content,
-                            metadata={"chapter": f"Chapter {i}", "page": page_num}
-
+                            metadata={"chapter": f"Chapter {i}", "page": page_num, "section": section_num}
                         )
                     )
 
@@ -247,9 +265,7 @@ class retriever:
         )
             
         # Defines the parent splitter
-
         parent_splitter = self.CustomParentSplitter(
-
             chunk_size=2000,
         )
 
@@ -322,6 +338,7 @@ ret_path2 = os.path.abspath("../data/chapter6_retriever")
 textbook_config = retrieverConfig(
     pdoc_filepath="../data/whole_docs.json",
     pdf_filepath="../data/wholeTextbookPsych.pdf",
+    page_range_path="../data/page_ranges.json",
     pdoc_output_dir="../data",
     page_ranges=[
         (19,46),(47,82),(83,120),(121,156),
@@ -341,6 +358,7 @@ textbook_config = retrieverConfig(
 chapter6_config = retrieverConfig(
     pdoc_filepath="../data/chapter6.json",
     pdf_filepath="../data/wholeTextbookPsych.pdf",
+    page_range_path="../data/page_ranges.json",
     pdoc_output_dir="../data",
     page_ranges=[
         (193,224)
@@ -351,7 +369,7 @@ chapter6_config = retrieverConfig(
     qdrant_key=os.getenv("QDRANT_KEY"),
     search_type="similarity",
     search_kwargs={"k": 10},
-    collection_name="chapter6_collection"
+    collection_name="chapter6_collection" + "_" + os.getenv("NAME")
 )
 
 #

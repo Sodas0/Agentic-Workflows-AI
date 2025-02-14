@@ -103,7 +103,7 @@ def get_page_ranges(filepath):
 
     return chapter_page_ranges
 
-def get_section_ranges_by_chapter(filepath, sckew=True, requirements={
+def get_section_ranges_by_chapter(filepath, sckew=True, exclude=True, requirements={
     "exact_matches": ["Introduction"],
     "digit_check": True,
 }
@@ -127,9 +127,14 @@ def get_section_ranges_by_chapter(filepath, sckew=True, requirements={
     i = 1
     chap_str = f"Chapter {i} sections"
     while chap_str in json_page_ranges:
-        s_ranges = [
-            (value[0], value[1]) for key, value in json_page_ranges[chap_str].items() if valid_key(key, requirements)
-        ]
+        if exclude:
+            s_ranges = [
+                (value[0], value[1]) for key, value in json_page_ranges[chap_str].items() if valid_key(key, requirements)
+            ]
+        else:
+            s_ranges = [
+                (value[0], value[1]) for key, value in json_page_ranges[chap_str].items()
+            ]
 
         # print(s_ranges)
 
