@@ -584,6 +584,7 @@
       let subChapterQuiz = ch6_quizzes[currentSubChapter] || [];
       quiz = subChapterQuiz;
       currentQuestionIndex = 0;
+      console.log(quiz.length)
       answers = Array(quiz.length).fill(null);
 
       // If there's no quiz, show alert
@@ -619,6 +620,7 @@
 
         radio.onclick = function() {
           answers[currentQuestionIndex] = answer;
+          console.log(answers)
         };
         label.appendChild(radio);
         label.appendChild(document.createTextNode(" " + answer));
@@ -635,7 +637,7 @@
 
     function updateProgressBar() {
       const total = quiz.length;
-      const progressPercentage = (currentQuestionIndex / total) * 100;
+      const progressPercentage = (currentQuestionIndex / (total - 1)) * 100;
       const barEl = document.getElementById("quizProgressBar");
       barEl.style.width = progressPercentage + "%";
     }
@@ -656,6 +658,7 @@
 
     function submitQuiz() {
       // Send subchapter + answers to /submit-answer
+      console.log(answers)
       fetch("/submit-answer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -105,10 +105,11 @@ def serve_chapter(chapter_number):
 
     # Prepare dictionary for Chapter 6 quizzes
     ch6_quizzes = {
-        0: ch6_1_reinforcement,
-        1: ch6_2_reinforcement,
-        2: ch6_3_reinforcement,
-        3: ch6_4_reinforcement
+        0: ch6_pre_quiz,
+        1: ch6_1_reinforcement,
+        2: ch6_2_reinforcement,
+        3: ch6_3_reinforcement,
+        4: ch6_4_reinforcement
     }
 
     # If chat_history not in session, make a welcome message
@@ -194,7 +195,11 @@ def submit_answers():
     then calls our 'evaluate_quiz_answers' tool using the CORRECT sub-chapter quiz.
     """
     request_data = request.json
-    submitted_answers = request_data.get("answers")
+    submitted_answers = request_data["answers"]
+    print("---------answers-----------")
+    print(request_data)
+    print(submitted_answers)
+    print("---------answers-end-----------")
     subchapter_idx = request_data.get("subchapter")  # e.g. 0, 1, 2, 3, 4
 
     # Rebuild the dictionary (same as above)
