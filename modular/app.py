@@ -1,18 +1,25 @@
-from flask import Flask, render_template, request, session, send_file, jsonify, Response, stream_with_context
-from langchain_openai import ChatOpenAI
-from graph import build_graph
-from dotenv import load_dotenv
-from bookmark import initialize_bookmarks, get_page_ranges, get_num_buttons, save_section_pdf
-from PyPDF2 import PdfReader, PdfWriter
-import random
 import os
 import io
+import random
 import time
 
-# 1) Import quiz tool:
-from tools import evaluate_quiz_answers
+### FLASK IMPORTS ###
+from flask import (
+    Flask, render_template, request, session, send_file, jsonify, 
+    Response, stream_with_context, make_response, redirect, url_for
+)
 
-# 2) Import from data.py
+
+from dotenv import load_dotenv
+from PyPDF2 import PdfReader, PdfWriter
+from langchain_openai import ChatOpenAI
+
+### LOCAL MODULES ### 
+from graph import build_graph
+from bookmark import (
+    initialize_bookmarks, get_page_ranges, get_num_buttons, save_section_pdf
+)
+from tools import evaluate_quiz_answers
 from data import (
     ch6_pre_quiz,
     ch6_1_reinforcement,
@@ -51,16 +58,78 @@ sub_chapter = get_num_buttons(PAGE_RANGE_PATH)
 if not os.path.exists(SECTION_PATH):
     save_section_pdf(PDF_PATH, PAGE_RANGE_PATH, SECTION_PATH)
 
-@app.route("/", methods=["GET"])
-def home():
-    """
-    Home page. Lists all chapters (based on PAGE_RANGES).
-    """
+
+
+# ============= ROUTES =============
+
+
+QUALTRICS_RANDOM_ID="0000" # 0000 -> admin
+
+
+@app.route("/survey", methods=["GET", "POST"])
+def survey():
+    """Entry point for Qualtrics iframe integration"""
+    
+    random_id = request.args.get("id", session.get("randomID",
+                                                   "No ID provided"))
+    session["randomID"] = random_id 
+    
+    
     chapters = [
         {"number": i + 1, "start_page": start, "end_page": end}
         for i, (start, end) in enumerate(PAGE_RANGES)
     ]
-    return render_template("home.html", chapters=chapters)
+    chat_history = []
+    session["chat_history"] = chat_history
+    
+    ch6_quizzes = {
+        0: ch6_pre_quiz,
+        1: ch6_1_reinforcement,
+        2: ch6_2_reinforcement,
+        3: ch6_3_reinforcement,
+        4: ch6_4_reinforcement
+    }
+    
+    chapter_number = 6
+    
+    if session["chat_history"] == []:
+        pre_message = (
+            f"Engage the user with Chapter {chapter_number} by prompting them to think about what they already know "
+            f"on the topic before reading. After they go through the material, ask them to summarize the main idea in their own words. "
+            f"Encourage critical thinking by asking follow-up questions based on their response. "
+            f"Remind them that they must complete the learning quiz using the quiz button on the right "
+            f"before they can proceed to the next subchapter. Be proactive and interactive — guide them through the learning process!"
+            f"remember to keep the message as short as possible while encouraging conversation - we don't want to overwhelm them."
+        )
+
+
+        bot_response = ""
+
+        # Stream the LLM's answer
+        for event in graph.stream({"messages": [("user", pre_message)]}, {"configurable":{"thread_id":thread_id + QUALTRICS_RANDOM_ID}}):
+            for value in event.values():
+                bot_response = value["messages"][-1].content
+
+        # Store in session
+        session["chat_history"].append({"sender": "bot", "message": bot_response})
+    
+    
+    return render_template(
+            "chapter_viewer.html",
+            chapter_number=6,
+            button_count=4,
+            chat_history=session["chat_history"],
+            ch6_quizzes=ch6_quizzes
+        )
+
+
+@app.route("/", methods=["GET"])
+def home():
+    """
+    Redirects to the survey page immediately.
+    """
+    return redirect(url_for("survey"))
+
 
 @app.route("/chapter_pdf/<int:chapter_number>", methods=["GET"])
 def serve_chapter_pdf(chapter_number):
@@ -112,22 +181,25 @@ def serve_chapter(chapter_number):
     }
 
     # If chat_history not in session, make a welcome message
-    if "chat_history" not in session:
-        pre_message = (
-            f"Summarize briefly the main idea of chapter {chapter_number}. "
-            f"Remind the user that they must take the pre-learning quiz using the quiz button "
-            f"on the right to move on to the next subchapter."
-        )
-        session["chat_history"] = []
-        bot_response = ""
+    # if session["chat_history"] == []:
+    #     pre_message = (
+    #         f"Engage the user with Chapter {chapter_number} by prompting them to think about what they already know "
+    #         f"on the topic before reading. After they go through the material, ask them to summarize the main idea in their own words. "
+    #         f"Encourage critical thinking by asking follow-up questions based on their response. "
+    #         f"Remind them that they must complete the learning quiz using the quiz button on the right "
+    #         f"before they can proceed to the next subchapter. Be proactive and interactive—guide them through the learning process!"
+    #     )
 
-        # Stream the LLM's answer
-        for event in graph.stream({"messages": [("user", pre_message)]}, {"configurable":{"thread_id":thread_id}}):
-            for value in event.values():
-                bot_response = value["messages"][-1].content
 
-        # Store in session
-        session["chat_history"].append({"sender": "bot", "message": bot_response})
+    #     bot_response = ""
+
+    #     # Stream the LLM's answer
+    #     for event in graph.stream({"messages": [("user", pre_message)]}, {"configurable":{"thread_id":thread_id + QUALTRICS_RANDOM_ID}}):
+    #         for value in event.values():
+    #             bot_response = value["messages"][-1].content
+
+    #     # Store in session
+    #     session["chat_history"].append({"sender": "bot", "message": bot_response})
 
     # If the user sends a chat question (POST)
     if request.method == "POST":
@@ -139,7 +211,7 @@ def serve_chapter(chapter_number):
                 final_response = ""
                 for event in graph.stream(
                     {"messages": [("user", user_question)]},
-                    {"configurable":{"thread_id":thread_id}}
+                    {"configurable":{"thread_id":thread_id + QUALTRICS_RANDOM_ID}}
                 ):
                     for value in event.values():
                         final_response = value["messages"][-1].content
