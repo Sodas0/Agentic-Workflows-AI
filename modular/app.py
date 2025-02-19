@@ -62,6 +62,23 @@ def home():
     ]
     return render_template("home.html", chapters=chapters)
 
+@app.route("/generate_summary/<int:chapter_number>/<int:subchapter_number>", methods=["GET"])
+def generate_summary(chapter_number, subchapter_number):
+    """
+    Generate a summary for a given chapter and subchapter.
+    """
+    prompt = (
+        f"Write a summarize, as concise as possible, for {chapter_number}'s subchapter {subchapter_number}. Focus on the learning objectives."
+    )
+    response = ""
+
+    for event in graph.stream({"messages": [("user", prompt)]}, {"configurable":{"thread_id":thread_id}}):
+        for value in event.values():
+            response = value["messages"][-1].content
+
+    return jsonify({"summary": response})
+
+
 @app.route("/chapter_pdf/<int:chapter_number>", methods=["GET"])
 def serve_chapter_pdf(chapter_number):
     """
@@ -112,23 +129,9 @@ def serve_chapter(chapter_number):
         4: ch6_4_reinforcement
     }
 
-    # If chat_history not in session, make a welcome message
+    # If chat_history not in session, create empty session
     if "chat_history" not in session:
-        pre_message = (
-            f"Summarize briefly the main idea of chapter {chapter_number}. "
-            f"Remind the user that they must take the pre-learning quiz using the quiz button "
-            f"on the right to move on to the next subchapter."
-        )
         session["chat_history"] = []
-        bot_response = ""
-
-        # Stream the LLM's answer
-        for event in graph.stream({"messages": [("user", pre_message)]}, {"configurable":{"thread_id":thread_id}}):
-            for value in event.values():
-                bot_response = value["messages"][-1].content
-
-        # Store in session
-        session["chat_history"].append({"sender": "bot", "message": bot_response})
 
     # If the user sends a chat question (POST)
     if request.method == "POST":

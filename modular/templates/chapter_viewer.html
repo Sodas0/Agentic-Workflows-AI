@@ -457,6 +457,40 @@
     // Track which sub-chapter the user last clicked
     let currentSubChapter = 0;
     let subChapterQuizCompleted = [];
+    let viewedSubChapter = [];
+
+    function generateSummary(chapterNumber, subchapterNumber) {
+      const chatBox = document.getElementById('chat-box');
+
+      // Create a temporary loading message
+      const loadingMsg = document.createElement('div');
+      loadingMsg.classList.add('message', 'bot-message');
+      loadingMsg.innerHTML = '<strong>Bot:</strong> Generating summary...';
+      chatBox.appendChild(loadingMsg);
+
+      fetch (`/generate_summary/${chapterNumber}/${subchapterNumber}`)
+        .then(response => response.json())
+        .then(data => {
+          const botMsg = document.createElement('div');
+          botMsg.classList.add('message', 'bot-message');
+          botMsg.innerHTML = `<strong>Bot:</strong> ${data.summary}`;
+          chatBox.replaceChild(botMsg, loadingMsg);
+
+          viewedSubChapter.push(subchapterNumber);
+        })
+        .catch(error => {
+          console.error('Error:', error);
+        });
+    }
+
+    function navigateToSubChapter(chapterNumber, subchapterNumber) {
+      const pdfFrame = document.getElementById("pdf-frame");
+      pdfFrame.src = `/chapter_pdf/${chapterNumber}/${subchapterNumber}`;
+
+      if (!viewedSubChapter.includes(subchapterNumber)) {
+        generateSummary(chapterNumber, subchapterNumber);
+      }
+    }
 
     // On page load, create sub-chapter buttons and lock them except the first
     window.onload = function() {
@@ -472,6 +506,10 @@
       if (chapterNumber == 6 && buttonCount > 0) {
         pdfFrame.src = `/chapter_pdf/${chapterNumber}/1`;
         currentSubChapter = 0; 
+
+        if (!viewedSubChapter.includes(1)) {
+          generateSummary(chapterNumber, 1);
+        }
       }
 
       for (let i = 0; i < buttonCount; i++) {
@@ -495,7 +533,7 @@
             return;
           }
           // If unlocked, load the PDF
-          pdfFrame.src = `/chapter_pdf/${chapterNumber}/${i+1}`;
+          navigateToSubChapter(chapterNumber, i + 1);
           currentSubChapter = i;
         });
 
