@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session, send_file, jsonify, Response, stream_with_context
+from flask import Flask, render_template, request, session, send_file, jsonify, Response, stream_with_context, url_for
 from langchain_openai import ChatOpenAI
 from graph import build_graph
 from dotenv import load_dotenv
@@ -8,6 +8,9 @@ import random
 import os
 import io
 import time
+import re
+import json
+import requests
 
 # 1) Import quiz tool:
 from tools import evaluate_quiz_answers
@@ -97,27 +100,17 @@ def serve_chapter(chapter_number):
     """
     Renders chapter_viewer.html and handles chat logic.
     """
+
     idx = chapter_number - 1
     if idx < 0 or idx >= len(sub_chapter):
         return f"Chapter {chapter_number} not found.", 404
 
     button_count = sub_chapter[idx]-1
 
-    # Prepare dictionary for Chapter 6 quizzes
-    ch6_quizzes = {
-        0: ch6_pre_quiz,
-        1: ch6_1_reinforcement,
-        2: ch6_2_reinforcement,
-        3: ch6_3_reinforcement,
-        4: ch6_4_reinforcement
-    }
-
-    # If chat_history not in session, make a welcome message
     if "chat_history" not in session:
         pre_message = (
-            f"Summarize briefly the main idea of chapter {chapter_number}. "
-            f"Remind the user that they must take the pre-learning quiz using the quiz button "
-            f"on the right to move on to the next subchapter."
+            f"Introduce yourself and how you hope to help the user. We will be going through chapter {chapter_number}. "
+            f"Summarize briefly the main idea of chapter {chapter_number}.1. Spark interest in the user and prepare them for the first MCQ you will generate."
         )
         session["chat_history"] = []
         bot_response = ""
@@ -130,25 +123,42 @@ def serve_chapter(chapter_number):
         # Store in session
         session["chat_history"].append({"sender": "bot", "message": bot_response})
 
-    # If the user sends a chat question (POST)
+    quiz = {}
     if request.method == "POST":
         user_question = request.form.get("question", "").strip()
         if user_question:
             session["chat_history"].append({"sender": "user", "message": user_question})
+            
+            final_response = ""
+
+            # Process LLM response before streaming
+            for event in graph.stream(
+                {"messages": [("user", user_question)]},
+                {"configurable": {"thread_id": thread_id}}
+            ):
+                for value in event.values():
+                    final_response = value["messages"][-1].content
+
+            # Extract JSON for the quiz
+            json_match = re.search(r'```json\s*({.*?})\s*```', final_response, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(1)  # Extract matched JSON part
+                try:
+                    quiz = json.loads(json_str)  # Parse JSON safely
+                    print(quiz)
+                    session["current_quiz"] = json.dumps(quiz)
+                    # Remove extracted quiz from final response
+                    final_response = re.sub(r'```json\s*{.*?}\s*```', '', final_response, flags=re.DOTALL).strip()
+                except json.JSONDecodeError as e:
+                    print(f"Failed to parse JSON: {e}")
+                    quiz = {}
+                    session['current_quiz'] = {}
+
+            session["chat_history"].append({"sender": "bot", "message": final_response})
+            session.modified = True
 
             def generate():
-                final_response = ""
-                for event in graph.stream(
-                    {"messages": [("user", user_question)]},
-                    {"configurable":{"thread_id":thread_id}}
-                ):
-                    for value in event.values():
-                        final_response = value["messages"][-1].content
-
-                session["chat_history"].append({"sender": "bot", "message": final_response})
-                session.modified = True
-
-                # Stream out the final_response char by char
+                # Stream out the cleaned final_response char by char
                 for char in final_response:
                     yield char
                     time.sleep(0.01)
@@ -159,24 +169,23 @@ def serve_chapter(chapter_number):
         return render_template("chat_messages.html", chat_history=session["chat_history"])
 
     # If GET request, show chapter_viewer.html
-    if chapter_number == 6:
-        # Pass the dictionary of quizzes
-        return render_template(
-            "chapter_viewer.html",
-            chapter_number=chapter_number,
-            button_count=button_count,
-            chat_history=session["chat_history"],
-            ch6_quizzes=ch6_quizzes
-        )
-    else:
-        # No quizzes for other chapters
-        return render_template(
-            "chapter_viewer.html",
-            chapter_number=chapter_number,
-            button_count=button_count,
-            chat_history=session["chat_history"],
-            ch6_quizzes={}
-        )
+    return render_template(
+        "chapter_viewer.html",
+        chapter_number=chapter_number,
+        button_count=button_count,
+        chat_history=session["chat_history"],
+        quiz=json.dumps(quiz)  # Pass extracted quiz
+    )
+
+@app.route("/get_current_quiz", methods=["GET"])
+def get_current_quiz():
+    quiz_data = session.get("current_quiz", "{}")  # Default to '{}' to prevent errors
+    try:
+        return jsonify(json.loads(quiz_data))  # Parse string back into JSON object
+    except json.JSONDecodeError as e:
+        print(f"Error decoding session quiz JSON: {e}")
+        return jsonify({})  # Return empty JSON if there's an error
+
 
 @app.route("/home")
 def go_home():
@@ -196,44 +205,37 @@ def submit_answers():
     """
     request_data = request.json
     submitted_answers = request_data["answers"]
-    print("---------answers-----------")
-    print(request_data)
+    chapter_number = request_data["chapter_number"]
+    print("quiz ----------------")
     print(submitted_answers)
-    print("---------answers-end-----------")
-    subchapter_idx = request_data.get("subchapter")  # e.g. 0, 1, 2, 3, 4
+    print("quiz ----------------")
 
-    # Rebuild the dictionary (same as above)
-    ch6_quizzes = {
-        0: ch6_pre_quiz,
-        1: ch6_1_reinforcement,
-        2: ch6_2_reinforcement,
-        3: ch6_3_reinforcement,
-        4: ch6_4_reinforcement
-    }
+    prompt = (
+        "Your task is to walk the user through there quiz, evaluating the answers and providing feedback that can help them remember the answer or achieve the correct answer. "
+        "You will do this for the first question, holding off on providing feedback for the next question until the user responds to the feedback"
+        "Once you are done prepare the user to move on to the next sub section, giving a summary of the current section. "
+        "Remember you will provide a quiz for the next section once the user is ready. "
+        "Here is their quiz: "
+        f"{json.dumps(submitted_answers)}"
+    )
+    session["chat_history"] = []
+    bot_response = ""
+    session["chat_history"].append({"sender": "user", "message": prompt})
+    # Stream the LLM's answer
+    for event in graph.stream({"messages": [("user", prompt)]}, {"configurable":{"thread_id":thread_id}}):
+        for value in event.values():
+            bot_response = value["messages"][-1].content
+    print(bot_response)
+    # Store in session
+    session["chat_history"].append({"sender": "bot", "message": bot_response})
+    def generate():
+        # Stream out the cleaned final_response char by char
+        for char in bot_response:
+            yield char
+            time.sleep(0.01)
+    
 
-    if isinstance(submitted_answers, list) and (subchapter_idx is not None):
-        # 1) Append user's answers to global list
-        answers.extend(submitted_answers)
-        print("Stored answers so far:", answers)
-
-        # 2) Grab the correct quiz from dictionary
-        the_quiz = ch6_quizzes.get(subchapter_idx, [])
-        print(f"Evaluating quiz for sub-chapter index {subchapter_idx}: {the_quiz}")
-
-        # 3) Evaluate with the tool
-        evaluation_response, score, total_questions, feedback, correct_answers = evaluate_quiz_answers(the_quiz, submitted_answers)
-        print("Tool response from LLM:", evaluation_response)
-
-        # 4) Return JSON back to the frontend
-        return jsonify({
-            "message": "Quiz submitted successfully!",
-            "answers": correct_answers,
-            "score": score,
-            "total_questions": total_questions,
-            "feedback": feedback
-        })
-
-    return jsonify({"error": "Invalid submission"}), 400
+    return Response(stream_with_context(generate()), mimetype="text/plain")
 
 if __name__ == "__main__":
     app.run(debug=True)

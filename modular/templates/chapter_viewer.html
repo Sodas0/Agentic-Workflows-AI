@@ -1,4 +1,3 @@
-<!-- templates/chapter_viewer.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -364,6 +363,24 @@
       opacity: 1;
       transform: translateX(-50%) translateY(0);
     }
+
+    #start-quiz-btn {
+      position: absolute;
+      top: 70px;
+      right: 20px;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 5px;
+      background: linear-gradient(to right, #f2994a, #f2c94c);
+      color: #fff;
+      cursor: pointer;
+      display: none; /* Initially hidden */
+    }
+
+    #start-quiz-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
@@ -397,7 +414,7 @@
       </div>
 
       <!-- Chat Form -->
-      <form action="/chapter/{{ chapter_number }}" method="post">
+      <form action="/chapter/{{ chapter_number }}" method="post" id="chat-form">
         <div class="input-group mt-3">
           <input
             type="text"
@@ -415,21 +432,7 @@
   </div>
 
   <!-- Button to Start Quiz -->
-  <button
-    style="
-      position:absolute;
-      top:70px;
-      right:20px;
-      padding:10px 15px;
-      border:none;
-      border-radius:5px;
-      background: linear-gradient(to right, #f2994a, #f2c94c);
-      color:#fff;
-      cursor:pointer;
-    "
-    onclick="startQuiz()">
-    Start Quiz
-  </button>
+  <button id="start-quiz-btn" onclick="startQuiz()" disabled>Start Quiz</button>
 
   <!-- Quiz Modal -->
   <div id="quizModal" class="modal">
@@ -451,23 +454,41 @@
   </div>
 
   <script>
-    // Server-side dictionary of sub-chapter quizzes if chapter_number=6, else empty
-    let ch6_quizzes = JSON.parse('{{ ch6_quizzes | tojson | escape }}');
-
-    // Track which sub-chapter the user last clicked
+    let quiz = {};
+    let currentQuestionIndex = 0;
+    let answers = [];
     let currentSubChapter = 0;
     let subChapterQuizCompleted = [];
+    let chapterNumber;
 
-    // On page load, create sub-chapter buttons and lock them except the first
+    // Function to check if a quiz is available and update the button
+    function checkQuizAvailability() {
+      fetch('/get_current_quiz')
+        .then(response => response.json())
+        .then(data => {
+          console.log("quiz data:", data)
+          quiz = data["quiz"];
+          const startQuizBtn = document.getElementById('start-quiz-btn');
+          if (Object.keys(quiz).length > 0) {
+            startQuizBtn.style.display = 'block';
+            startQuizBtn.disabled = false;
+          } else {
+            startQuizBtn.style.display = 'none';
+            startQuizBtn.disabled = true;
+          }
+        })
+        .catch(error => console.error('Error:', error));
+    }
+
+    // Call this function when the page loads
     window.onload = function() {
       const buttonCount = JSON.parse('{{ button_count }}');
       const chapterNumber = JSON.parse('{{ chapter_number }}');
       const buttonContainer = document.getElementById("buttonContainer");
       const pdfFrame = document.getElementById("pdf-frame");
-
+      console.log("ButtonCount: ", buttonCount);
       subChapterQuizCompleted = new Array(buttonCount).fill(false);
 
-      
       // automatically load sub-chapter 6.1 in the PDF.
       if (chapterNumber == 6 && buttonCount > 0) {
         pdfFrame.src = `/chapter_pdf/${chapterNumber}/1`;
@@ -490,8 +511,6 @@
           // If locked, do nothing (or show a popup)
           if (btn.disabled) {
             event.preventDefault();
-            // Optional popup:
-            // alert("You must complete the quiz for the previous sub-chapter first!");
             return;
           }
           // If unlocked, load the PDF
@@ -501,6 +520,8 @@
 
         buttonContainer.appendChild(btn);
       }
+
+       // checkQuizAvailability();
     };
 
     // Toggle PDF viewer
@@ -525,7 +546,7 @@
     }
 
     // Chat streaming
-    document.querySelector('form[action^="/chapter/"]').addEventListener('submit', async (event) => {
+    document.getElementById('chat-form').addEventListener('submit', async (event) => {
       event.preventDefault();
       const form = event.target;
       const formData = new FormData(form);
@@ -546,6 +567,7 @@
           method: 'POST',
           body: formData,
         });
+        console.log("Response: ", response);
         if (response.ok) {
           const botMsg = document.createElement('div');
           botMsg.classList.add('message', 'bot-message');
@@ -555,13 +577,21 @@
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
           let done = false;
+          let accumulatedText = '';
           while (!done) {
             const { value, done: doneReading } = await reader.read();
             done = doneReading;
             const chunk = decoder.decode(value, { stream: !done });
             botMsg.innerHTML += chunk;
+            accumulatedText += chunk;
+            botMsg.innerHTML = formatText(accumulatedText);
             chatBox.scrollTop = chatBox.scrollHeight;
           }
+          botMsg.innerHTML = formatText(accumulatedText);
+          
+
+          // After processing the bot's response, check for quiz availability
+          checkQuizAvailability();
         } else {
           console.error('Failed to send the message');
         }
@@ -570,28 +600,13 @@
       }
     });
 
-    /*
-      ==========================
-      QUIZ LOGIC (startQuiz, loadQuestion, etc.)
-      ==========================
-    */
-    let quiz = [];
-    let currentQuestionIndex = 0;
-    let answers = [];
-
     function startQuiz() {
-      // Load the quiz for the current sub-chapter
-      let subChapterQuiz = ch6_quizzes[currentSubChapter] || [];
-      quiz = subChapterQuiz;
-      currentQuestionIndex = 0;
-      console.log(quiz.length)
-      answers = Array(quiz.length).fill(null);
-
-      // If there's no quiz, show alert
-      if (quiz.length === 0) {
-        alert("No quiz available for this sub-chapter!");
+      if (Object.keys(quiz).length === 0) {
+        alert("No quiz available!");
         return;
       }
+      currentQuestionIndex = 0;
+      answers = Array(quiz.length).fill(null);
       openModal();
     }
 
@@ -599,28 +614,29 @@
       document.getElementById("quizModal").style.display = "block";
       loadQuestion();
     }
+
     function closeModal() {
       document.getElementById("quizModal").style.display = "none";
     }
 
     function loadQuestion() {
       let questionData = quiz[currentQuestionIndex];
+      console.log("Question data: ", questionData);
       document.getElementById("questionText").innerText = questionData.question;
 
       let optionsContainer = document.getElementById("quizOptions");
       optionsContainer.innerHTML = "";
 
-      questionData.answers.forEach((answer) => {
+      questionData.options.forEach((answer, index) => {
         let label = document.createElement("label");
         let radio = document.createElement("input");
         radio.type = "radio";
         radio.name = "answer";
-        radio.value = answer;
-        radio.checked = (answers[currentQuestionIndex] === answer);
+        radio.value = index;
+        radio.checked = (answers[currentQuestionIndex] === index);
 
         radio.onclick = function() {
-          answers[currentQuestionIndex] = answer;
-          console.log(answers)
+          answers[currentQuestionIndex] = index;
         };
         label.appendChild(radio);
         label.appendChild(document.createTextNode(" " + answer));
@@ -637,7 +653,7 @@
 
     function updateProgressBar() {
       const total = quiz.length;
-      const progressPercentage = (currentQuestionIndex / (total - 1)) * 100;
+      const progressPercentage = ((currentQuestionIndex + 1) / total) * 100;
       const barEl = document.getElementById("quizProgressBar");
       barEl.style.width = progressPercentage + "%";
     }
@@ -656,34 +672,66 @@
       }
     }
 
-    function submitQuiz() {
-      // Send subchapter + answers to /submit-answer
-      console.log(answers)
-      fetch("/submit-answer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subchapter: currentSubChapter,
-          answers: answers
-        })
-      })
-      .then(response => response.json())
-      .then(data => {
-        alert("Quiz submitted!");
-        // console.log("evaluation:", data.evaluation);
+    async function submitQuiz() {
+      const quizWithAnswers = quiz.map((question, index) => ({
+        ...question,
+        user_answer: answers[index] // Add the user's selected answer (index)
+      }));
+      console.log("quiz with answers: ", quizWithAnswers);
+      closeModal();
+      const startQuizBtn = document.getElementById('start-quiz-btn');
+      startQuizBtn.style.display = 'none';
+      startQuizBtn.disabled = true;
+      
+      // Mark this sub-chapter as completed
+      subChapterQuizCompleted[currentSubChapter] = true;
+      // Unlock the next sub-chapter
+      unlockNextSubChapter(currentSubChapter);
+      try {
+        console.log("Chapter number: ",chapterNumber);
+        const response = await fetch("/submit-answer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                chapter_number: 6,
+                answers: quizWithAnswers
+            })
+        });
 
-        // Mark this sub-chapter as completed
-        subChapterQuizCompleted[currentSubChapter] = true;
-        // Unlock the next sub-chapter
-        unlockNextSubChapter(currentSubChapter);
-        // Call the function to display results in a dropdown
-        displayResultsInDropdown(data);
+        if (!response.ok) {
+            console.error("Failed to submit quiz:", response.statusText);
+            return;
+        }
+        console.log(response);
+        const chatBox = document.getElementById('chat-box');
 
-        closeModal();
-      })
-      .catch(error => console.error("Error:", error));
+        // Create bot message container
+        const botMsg = document.createElement('div');
+        botMsg.classList.add('message', 'bot-message');
+        botMsg.innerHTML = `<strong>Bot:</strong> `;
+        chatBox.appendChild(botMsg);
+
+        // Read and stream response
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let done = false;
+        let accumulatedText = '';
+        while (!done) {
+            const { value, done: doneReading } = await reader.read();
+            done = doneReading;
+            const chunk = decoder.decode(value, { stream: !done });
+            const formattedChunk = formatText(chunk);
+            botMsg.innerHTML += chunk;
+            accumulatedText += chunk;
+            botMsg.innerHTML = formatText(accumulatedText);
+            chatBox.scrollTop = chatBox.scrollHeight;
+          }
+          botMsg.innerHTML = formatText(accumulatedText);
+      } catch (error) {
+          console.error("Error submitting quiz:", error);
+      }
     }
-    // Function to display results in a dropdown banner
+
     function displayResultsInDropdown(data) {
       let dropdownBanner = document.getElementById('dropdown-banner');
       if (!dropdownBanner) {
@@ -692,11 +740,9 @@
         document.body.appendChild(dropdownBanner);
       }
 
-      // Ensure it's visible
-      dropdownBanner.style.display = 'block'; // Ensure display is set to block
-      dropdownBanner.classList.add('show'); // This will trigger the opacity transition
+      dropdownBanner.style.display = 'block';
+      dropdownBanner.classList.add('show');
 
-      // Populate the dropdown with content
       dropdownBanner.innerHTML = `
         <div class="dropdown-header">
           <h3>Quiz Results</h3>
@@ -713,8 +759,8 @@
 
     function closeDropdown() {
       let dropdownBanner = document.getElementById('dropdown-banner');
-      dropdownBanner.style.display = 'none'; // Hide the dropdown
-      dropdownBanner.classList.remove('show'); // Remove the show class for fade-out effect
+      dropdownBanner.style.display = 'none';
+      dropdownBanner.classList.remove('show');
     }
 
     function unlockNextSubChapter(index) {
@@ -726,6 +772,63 @@
         nextBtn.classList.remove("locked");
       }
     }
+
+      // Function to handle horizontal rules (--- or ___)
+      function formatHorizontalRules(text) {
+          const hrPattern = /^(---|___)$/gm;
+          return text.replace(hrPattern, () => {
+              return `<hr />`;
+          });
+      }
+
+      function formatBold(text) {
+        const boldPattern = /(\*\*|__)(.*?)\1/g;
+        return text.replace(boldPattern, (match, p1, p2) => {
+            if (p2.endsWith(':')) {
+                // Bold with colon, styled differently
+                return `<strong style="font-size: 1.4em; font-weight: bold; color: #333">${p2}</strong>`;
+            } else {
+                // Regular bold within a sentence
+                return `<strong font-weight: bold;">${p2}</strong>`;
+            }
+        });
+    }
+
+      function formatLists(text) {
+        const listPattern = /(^|\n)([-*])\s+(.*)/g;  // Match lines that start with `-` or `*`
+        return text.replace(listPattern, (match, p1, p2, p3) => {
+            // Wrap list items with <li> tags and wrap all items with <ul>
+            if (p1 === '\n') {
+                return `<ul><li>${p3}</li></ul>`;
+            } else {
+                return `<li>${p3}</li>`;
+            }
+        });
+    }
+
+    function formatBlockquotes(text) {
+        // Convert blockquotes with '>' into <blockquote> elements
+        return text.replace(/^>\s*(.*?)$/gm, (match, p1) => {
+            return `<blockquote>${p1}</blockquote>`;
+        });
+    }
+
+    function formatCodeBlocks(text) {
+        // Convert triple backticks (```) into <pre><code> blocks
+        return text.replace(/```(.*?)```/gs, (match, p1) => {
+            return `<pre><code>${p1.trim()}</code></pre>`;
+        });
+    }
+    function formatText(text) {
+      let formattedText = formatBold(text);   // Handle bold formatting first
+      formattedText = formatLists(formattedText);  // Then handle list formatting
+      formattedText = formatBlockquotes(formattedText);  // Then handle blockquotes
+      formattedText = formatCodeBlocks(formattedText);  // Finally, handle code blocks
+      formattedText = formatHorizontalRules(formattedText);
+
+      // Replace newline characters with <br> for line breaks
+      return formattedText.replace(/\n/g, '<br/>');
+  }
   </script>
 </body>
 </html>
