@@ -466,7 +466,7 @@
       fetch('/get_current_quiz')
         .then(response => response.json())
         .then(data => {
-          console.log("quiz data:", data)
+          // console.log("quiz data:", data)
           quiz = data["quiz"];
           const startQuizBtn = document.getElementById('start-quiz-btn');
           if (Object.keys(quiz).length > 0) {
@@ -483,17 +483,14 @@
     // Call this function when the page loads
     window.onload = function() {
       const buttonCount = JSON.parse('{{ button_count }}');
-      const chapterNumber = JSON.parse('{{ chapter_number }}');
+      chapterNumber = JSON.parse('{{ chapter_number }}');
       const buttonContainer = document.getElementById("buttonContainer");
       const pdfFrame = document.getElementById("pdf-frame");
-      console.log("ButtonCount: ", buttonCount);
+      // console.log("ButtonCount: ", buttonCount);
       subChapterQuizCompleted = new Array(buttonCount).fill(false);
-
-      // automatically load sub-chapter 6.1 in the PDF.
-      if (chapterNumber == 6 && buttonCount > 0) {
-        pdfFrame.src = `/chapter_pdf/${chapterNumber}/1`;
-        currentSubChapter = 0; 
-      }
+      pdfFrame.src = `/chapter_pdf/${chapterNumber}/1`;
+      currentSubChapter = 0; 
+    
 
       for (let i = 0; i < buttonCount; i++) {
         const label = chapterNumber + "." + (i + 1);
@@ -567,7 +564,7 @@
           method: 'POST',
           body: formData,
         });
-        console.log("Response: ", response);
+        //console.log("Response: ", response);
         if (response.ok) {
           const botMsg = document.createElement('div');
           botMsg.classList.add('message', 'bot-message');
@@ -621,7 +618,7 @@
 
     function loadQuestion() {
       let questionData = quiz[currentQuestionIndex];
-      console.log("Question data: ", questionData);
+      // console.log("Question data: ", questionData);
       document.getElementById("questionText").innerText = questionData.question;
 
       let optionsContainer = document.getElementById("quizOptions");
@@ -677,7 +674,7 @@
         ...question,
         user_answer: answers[index] // Add the user's selected answer (index)
       }));
-      console.log("quiz with answers: ", quizWithAnswers);
+      // console.log("quiz with answers: ", quizWithAnswers);
       closeModal();
       const startQuizBtn = document.getElementById('start-quiz-btn');
       startQuizBtn.style.display = 'none';
@@ -686,14 +683,18 @@
       // Mark this sub-chapter as completed
       subChapterQuizCompleted[currentSubChapter] = true;
       // Unlock the next sub-chapter
+      
+      // console.log("Current sub chapter: ", currentSubChapter);
       unlockNextSubChapter(currentSubChapter);
+      currentSubChapter += 1;
+      // console.log("Current sub chapter: ", currentSubChapter);
       try {
-        console.log("Chapter number: ",chapterNumber);
+        // console.log("Chapter number: ",chapterNumber);
         const response = await fetch("/submit-answer", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                chapter_number: 6,
+                chapter_number: chapterNumber,
                 answers: quizWithAnswers
             })
         });
@@ -702,7 +703,7 @@
             console.error("Failed to submit quiz:", response.statusText);
             return;
         }
-        console.log(response);
+        // console.log(response);
         const chatBox = document.getElementById('chat-box');
 
         // Create bot message container

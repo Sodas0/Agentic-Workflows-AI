@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session, send_file, jsonify, Response, stream_with_context, url_for
+from flask import Flask, render_template, request, session, send_file, jsonify, Response, stream_with_context
 from langchain_openai import ChatOpenAI
 from graph import build_graph
 from dotenv import load_dotenv
@@ -10,19 +10,11 @@ import io
 import time
 import re
 import json
-import requests
+
+from flask_session import Session
 
 # 1) Import quiz tool:
 from tools import evaluate_quiz_answers
-
-# 2) Import from data.py
-from data import (
-    ch6_pre_quiz,
-    ch6_1_reinforcement,
-    ch6_2_reinforcement,
-    ch6_3_reinforcement,
-    ch6_4_reinforcement
-)
 
 answers = []  # Store user quiz answers in memory (global list)
 
@@ -30,7 +22,13 @@ answers = []  # Store user quiz answers in memory (global list)
 load_dotenv()
 
 app = Flask(__name__)
+app.config["SESSION_TYPE"] = "filesystem"
+app.config["SESSION_FILE_DIR"] = "./flask_sessions"  # Directory for session files
+app.config["SESSION_PERMANENT"] = False  # Do not persist across restarts
+app.config["SESSION_USE_SIGNER"] = True  # Secure the session
 app.secret_key = os.urandom(24)
+Session(app)
+
 
 emoji_pool = [
     "🍅","😂","😎","😍","🤓","😜","🤩","🥳","😇","🤖","👻","👽","😩","🙈",
@@ -53,6 +51,7 @@ PAGE_RANGES = get_page_ranges(PAGE_RANGE_PATH)
 sub_chapter = get_num_buttons(PAGE_RANGE_PATH)
 if not os.path.exists(SECTION_PATH):
     save_section_pdf(PDF_PATH, PAGE_RANGE_PATH, SECTION_PATH)
+
 
 @app.route("/", methods=["GET"])
 def home():
@@ -152,7 +151,6 @@ def serve_chapter(chapter_number):
                 except json.JSONDecodeError as e:
                     print(f"Failed to parse JSON: {e}")
                     quiz = {}
-                    session['current_quiz'] = {}
 
             session["chat_history"].append({"sender": "bot", "message": final_response})
             session.modified = True
@@ -218,7 +216,7 @@ def submit_answers():
         "Here is their quiz: "
         f"{json.dumps(submitted_answers)}"
     )
-    session["chat_history"] = []
+    session["chat_history"] = session.get("chat_history")
     bot_response = ""
     session["chat_history"].append({"sender": "user", "message": prompt})
     # Stream the LLM's answer
@@ -234,7 +232,8 @@ def submit_answers():
             yield char
             time.sleep(0.01)
     
-
+    # Remove "current_quiz" from the session
+    session.pop("current_quiz", None)
     return Response(stream_with_context(generate()), mimetype="text/plain")
 
 if __name__ == "__main__":
