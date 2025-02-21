@@ -1,160 +1,290 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_file, jsonify, Response, stream_with_context
+from flask import Flask, render_template, request, session, send_file, jsonify, Response, stream_with_context, redirect
 from langchain_openai import ChatOpenAI
 from graph import build_graph
 from dotenv import load_dotenv
 from bookmark import initialize_bookmarks, get_page_ranges, get_num_buttons, save_section_pdf
+from PyPDF2 import PdfReader, PdfWriter
+import random
 import os
 import io
 import time
-from PyPDF2 import PdfReader, PdfWriter
-from bookmark import initialize_bookmarks, get_page_ranges
-import random
 
-#don't ask, i was bored
-emoji_pool = [
-    "🍅", "😂", "😎", "😍", "🤓", "😜", "🤩",
-    "🥳", "😇", "🤖", "👻", "👽", "😩", "🙈",
-    "🐭", "🐶", "🦊", "🐼", "🐸", "🐵", "🦫"
-]
 
-# change k value to change length of string
-thread_id = ''.join(random.choices(emoji_pool, k=7))
+from tools import evaluate_quiz_answers
 
-def get_config():
-    #TODO:
-        # RANDOMIZED THREAD ID FOR EACH USER.
-    
-    configuration = {"configurable": {"thread_id": thread_id}}
-    return configuration
 
-config = get_config()
+from data import (
+    ch6_pre_quiz,
+    ch6_1_reinforcement,
+    ch6_2_reinforcement,
+    ch6_3_reinforcement,
+    ch6_4_reinforcement
+)
 
-# Load environment variables
-load_dotenv()
+answers = []  # Store user quiz answers in memory (global list, probably a bad practice but uhhh)
+
+# ============= Load environment variables =============
+load_dotenv(override=True)
+
+
+# Get API keys as a list
+API_KEYS = os.getenv("OPENAI_API_KEYS").split(",")
+
+
+def get_random_api_key():
+    """Selects a random API key from the list."""
+    return random.choice(API_KEYS)
+
+random_api_key = get_random_api_key()
+print("="*40)
+print(random_api_key)
 
 app = Flask(__name__)
+app.secret_key = os.urandom(24)
 
-app.secret_key = "my_secret_key" #os.urandom(24)  # Required for session handling
-app.secret_key = os.urandom(24)  # Required for session handling
+emoji_pool = [
+    "🍅","😂","😎","😍","🤓","😜","🤩","🥳","😇","🤖","👻","👽","😩","🙈",
+    "🐭","🐶","🦊","🐼","🐸","🐵","🦫"
+]
+# thread_id = ''.join(random.choices(emoji_pool, k=7))
+# print("THREAD ID =>", thread_id)
 
-print("="*19 + "SECRET KEY" + "="*19)
-print(app.secret_key)
-print("="*19 + "THREAD ID" + "="*19)
-print(thread_id)
+thread_id = 'participant_'
 
-# Initialize LLM and graph
-llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)
+# ============= Initialize LLM & Graph =============
+llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True, openai_api_key=random_api_key)
 graph = build_graph(llm)
 
-
-
-# Textbook and page ranges
+# ============= PDF & Bookmark Setup =============
 PDF_PATH = "../data/wholeTextbookPsych.pdf"
 PAGE_RANGE_PATH = "../data/page_ranges.json"
 SECTION_PATH = "../data/sections"
-# Build bookmarks
+
 initialize_bookmarks(PDF_PATH, PAGE_RANGE_PATH)
 PAGE_RANGES = get_page_ranges(PAGE_RANGE_PATH)
 sub_chapter = get_num_buttons(PAGE_RANGE_PATH)
 if not os.path.exists(SECTION_PATH):
-        save_section_pdf(PDF_PATH, PAGE_RANGE_PATH, SECTION_PATH)
+    save_section_pdf(PDF_PATH, PAGE_RANGE_PATH, SECTION_PATH)
 
-@app.route("/", methods=["GET"])
+
+# ----------------------------------------------------------------------
+# NEW HOME ROUTE: Enter 4-Digit Code & Store in Session
+ # TODO:
+        # CREATE A DATABASE TO STORE CHAT_HISTORY LOGS FOR EACH UNIQUE ID.
+# ----------------------------------------------------------------------
+
+@app.route("/", methods=["GET", "POST"])
 def home():
-    # Dynamically create a list of chapters based on PAGE_RANGES
-    chapters = [{"number": i + 1, "start_page": start, "end_page": end} for i, (start, end) in enumerate(PAGE_RANGES)]
-    return render_template("home.html", chapters=chapters)
+    """
+    Home page. Used to correlate Qualtrics ID to chatlogs in Langsmith and our own logs.
+    Now this page allows the user to enter a four-digit code which is stored in the session
+    (as 'user_id'). Upon valid entry, the user is redirected to /chapter/6/1.
+    """
+    if request.method == "POST":
+        code = request.form.get("code", "").strip()
+        if not (code.isdigit() and len(code) == 4):
+            error = "Please enter a valid 4-digit code."
+            return render_template("code_entry.html", error=error)
+        session["user_id"] = code
+        
+        print("="*40)
+        print(f'Detected ID: {session["user_id"]}')
+        return redirect("/chapter/6")
+    return render_template("home.html", error=None)
 
-# Serve chapter to user
+
+# @app.route("/", methods=["GET"])
+# def home():
+#     """
+#     Home page. Lists all chapters (based on PAGE_RANGES).
+#     """
+#     chapters = [
+#         {"number": i + 1, "start_page": start, "end_page": end}
+#         for i, (start, end) in enumerate(PAGE_RANGES)
+#     ]
+#     return render_template("home.html", chapters=chapters)
+
+
+
+    
+  
+
+
+@app.route("/generate_summary/<int:chapter_number>/<int:subchapter_number>", methods=["GET"])
+def generate_summary(chapter_number, subchapter_number):
+    """
+    Generate a summary for a given chapter and subchapter.
+    """
+    prompt = (
+        f"Write a summarize, as concise as possible, for {chapter_number}'s subchapter {subchapter_number}. Focus on the learning objectives."
+    )
+    response = ""
+
+    for event in graph.stream({"messages": [("user", prompt)]}, {"configurable":{"thread_id":"participant_"+str(session["user_id"])}}):
+        for value in event.values():
+            response = value["messages"][-1].content
+
+    return jsonify({"summary": response})
+
 
 @app.route("/chapter_pdf/<int:chapter_number>", methods=["GET"])
 def serve_chapter_pdf(chapter_number):
-    chapter_number -= 1
-    try:
-        chapter_page_range = PAGE_RANGES[chapter_number]
-    except:
+    """
+    Serve the entire PDF for a given chapter (by slicing the big PDF).
+    """
+    idx = chapter_number - 1
+    if idx < 0 or idx >= len(PAGE_RANGES):
         return f"Chapter {chapter_number} not found.", 404
-    
-    start_page, end_page = chapter_page_range
+
+    start_page, end_page = PAGE_RANGES[idx]
     output_pdf = io.BytesIO()
     reader = PdfReader(PDF_PATH)
     writer = PdfWriter()
-
     for i in range(start_page - 1, end_page):
         writer.add_page(reader.pages[i])
-    
     writer.write(output_pdf)
     output_pdf.seek(0)
 
     return send_file(output_pdf, as_attachment=False, mimetype="application/pdf")
 
-# Serve the section to user
 @app.route("/chapter_pdf/<int:chapter_number>/<int:section_number>", methods=["GET"])
-def serve_section_pdf(chapter_number, section_number):
-    output_pdf = f"../data/sections/chapter {chapter_number}/{section_number}.pdf"
+def serve_section_pdf_route(chapter_number, section_number):
+    """
+    Serve a sub-chapter's PDF from the pre-saved PDFs in data/sections/.
+    """
+    pdf_path = f"../data/sections/chapter {chapter_number}/{section_number}.pdf"
+    if not os.path.exists(pdf_path):
+        return f"Section PDF not found at: {pdf_path}", 404
+    return send_file(pdf_path, as_attachment=False, mimetype="application/pdf")
 
-    return send_file(output_pdf, as_attachment=False, mimetype="application/pdf")
-
-# Serve the HTML page with the iframe
 @app.route("/chapter/<int:chapter_number>", methods=["GET", "POST"])
 def serve_chapter(chapter_number):
-    button_count = sub_chapter[chapter_number- 1] -1
-    print(button_count)
-    # Initialize chat history if it doesn't exist
+    """
+    Renders chapter_viewer.html and handles chat logic.
+    """
+    idx = chapter_number - 1
+    if idx < 0 or idx >= len(sub_chapter):
+        return f"Chapter {chapter_number} not found.", 404
+
+    button_count = sub_chapter[idx]-1
+
+    # Prepare dictionary for Chapter 6 quizzes
+    ch6_quizzes = {
+        0: ch6_pre_quiz,
+        1: ch6_1_reinforcement,
+        2: ch6_2_reinforcement,
+        3: ch6_3_reinforcement,
+        4: ch6_4_reinforcement
+    }
+
+    # If chat_history not in session, create empty session
     if "chat_history" not in session:
-
-        pre_message  = f"Summarize briefly the main idea of chapter {chapter_number}." 
-
         session["chat_history"] = []
-        bot_response = ""
-        for event in graph.stream({"messages": [("user", pre_message)]}, config):
-            for value in event.values():
-                bot_response = value["messages"][-1].content
-        session["chat_history"].append({"sender": "bot", "message": bot_response})
-    
-    # Handle POST (user message) requests.
+
+    # If the user sends a chat question (POST)
     if request.method == "POST":
         user_question = request.form.get("question", "").strip()
         if user_question:
             session["chat_history"].append({"sender": "user", "message": user_question})
-            
+
             def generate():
-                # First, accumulate the final bot response.
                 final_response = ""
-                for event in graph.stream({"messages": [("user", user_question)]}, config):
+                for event in graph.stream(
+                    {"messages": [("user", user_question)]},
+                    {"configurable":{"thread_id":"participant_"+str(session["user_id"])}}
+                ):
                     for value in event.values():
-                        # Overwrite with the latest content from the event.
                         final_response = value["messages"][-1].content
-                print("Final bot response:", final_response)
-                
-                # Update session with the final response.
+
                 session["chat_history"].append({"sender": "bot", "message": final_response})
                 session.modified = True
 
-                # Now, stream out the final response gradually.
+                # Stream out the final_response char by char
                 for char in final_response:
                     yield char
-                    # Adjust or remove the delay as needed.
                     time.sleep(0.01)
-            
-            # Return a streaming response. The MIME type is text/plain,
-            # but you can change it to "text/event-stream" if using SSE.
+
             return Response(stream_with_context(generate()), mimetype="text/plain")
-        
-        # If no question was provided, just re-render the chat messages.
+
+        # If no user question, just re-render the chat
         return render_template("chat_messages.html", chat_history=session["chat_history"])
-    
-    # For GET requests, render the full page.
-    return render_template("chapter_viewer.html", chapter_number=chapter_number, chat_history=session["chat_history"], button_count=int(button_count))
 
-
-
+    # If GET request, show chapter_viewer.html
+    if chapter_number == 6:
+        # Pass the dictionary of quizzes
+        return render_template(
+            "chapter_viewer.html",
+            chapter_number=chapter_number,
+            button_count=button_count,
+            chat_history=session["chat_history"],
+            ch6_quizzes=ch6_quizzes
+        )
+    else:
+        # No quizzes for other chapters
+        return render_template(
+            "chapter_viewer.html",
+            chapter_number=chapter_number,
+            button_count=button_count,
+            chat_history=session["chat_history"],
+            ch6_quizzes={}
+        )
 
 @app.route("/home")
 def go_home():
+    # Clears the session and returns to home
     session.clear()
-    chapters = [{"number": i + 1, "start_page": start, "end_page": end} for i, (start, end) in enumerate(PAGE_RANGES)]
+    chapters = [
+        {"number": i + 1, "start_page": start, "end_page": end}
+        for i, (start, end) in enumerate(PAGE_RANGES)
+    ]
     return render_template("home.html", chapters=chapters)
+
+@app.route("/submit-answer", methods=["POST"])
+def submit_answers():
+    """
+    Receives quiz answers, extends the global 'answers' list,
+    then calls our 'evaluate_quiz_answers' tool using the CORRECT sub-chapter quiz.
+    """
+    request_data = request.json
+    submitted_answers = request_data["answers"]
+    print("---------answers-----------")
+    print(request_data)
+    print(submitted_answers)
+    print("---------answers-end-----------")
+    subchapter_idx = request_data.get("subchapter")  # e.g. 0, 1, 2, 3, 4
+
+    # Rebuild the dictionary (same as above)
+    ch6_quizzes = {
+        0: ch6_pre_quiz,
+        1: ch6_1_reinforcement,
+        2: ch6_2_reinforcement,
+        3: ch6_3_reinforcement,
+        4: ch6_4_reinforcement
+    }
+
+    if isinstance(submitted_answers, list) and (subchapter_idx is not None):
+        # 1) Append user's answers to global list
+        answers.extend(submitted_answers)
+        print("Stored answers so far:", answers)
+
+        # 2) Grab the correct quiz from dictionary
+        the_quiz = ch6_quizzes.get(subchapter_idx, [])
+        print(f"Evaluating quiz for sub-chapter index {subchapter_idx}: {the_quiz}")
+
+        # 3) Evaluate with the tool
+        evaluation_response, score, total_questions, feedback, correct_answers = evaluate_quiz_answers(the_quiz, submitted_answers)
+        print("Tool response from LLM:", evaluation_response)
+
+        # 4) Return JSON back to the frontend
+        return jsonify({
+            "message": "Quiz submitted successfully!",
+            "answers": correct_answers,
+            "score": score,
+            "total_questions": total_questions,
+            "feedback": feedback
+        })
+
+    return jsonify({"error": "Invalid submission"}), 400
 
 if __name__ == "__main__":
     app.run(debug=True)
