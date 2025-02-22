@@ -833,6 +833,68 @@
       // Replace newline characters with <br> for line breaks
       return formattedText.replace(/\n/g, '<br/>');
   }
+  // Starts 20 minute timer when user enters the page
+  // To be removed after Qualtrix study is done
+  window.onload = function() {
+    startInactivityTimer();
+  };
+
+  function startInactivityTimer() {
+    const TIME_LIMIT = 20 * 60; // 20 minutes in seconds
+    let timeRemaining = TIME_LIMIT;
+
+    // Create the countdown display
+    let countdownElement = document.createElement("div");
+    countdownElement.id = "countdown-timer";
+    countdownElement.style.position = "fixed";
+    countdownElement.style.bottom = "20px";
+    countdownElement.style.right = "20px";
+    countdownElement.style.padding = "10px 15px";
+    countdownElement.style.backgroundColor = "#ff0000";
+    countdownElement.style.color = "white";
+    countdownElement.style.fontSize = "18px";
+    countdownElement.style.fontWeight = "bold";
+    countdownElement.style.borderRadius = "5px";
+    countdownElement.style.zIndex = "1000";
+    document.body.appendChild(countdownElement);
+
+    // Update countdown every second
+    let timerInterval = setInterval(() => {
+        let minutes = Math.floor(timeRemaining / 60);
+        let seconds = timeRemaining % 60;
+        countdownElement.innerText = `Time Remaining: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+
+        if (timeRemaining <= 0) {
+            clearInterval(timerInterval);
+            //alert("Go back to the survey");
+            disablePageInteraction();
+        }
+
+        timeRemaining--;
+    }, 1000);
+  }
+
+  function disablePageInteraction() {
+      // Create a full-page overlay to prevent interaction
+      let overlay = document.createElement("div");
+      overlay.style.position = "fixed";
+      overlay.style.top = "0";
+      overlay.style.left = "0";
+      overlay.style.width = "100vw";
+      overlay.style.height = "100vh";
+      overlay.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+      overlay.style.zIndex = "9999";
+      overlay.style.display = "flex";
+      overlay.style.justifyContent = "center";
+      overlay.style.alignItems = "center";
+      overlay.style.color = "white";
+      overlay.style.fontSize = "24px";
+      overlay.style.fontWeight = "bold";
+      overlay.innerText = "Time is up! Please return to the survey.";
+
+      document.body.appendChild(overlay);
+  }
+
   </script>
 </body>
 </html>
