@@ -364,27 +364,44 @@
       transform: translateX(-50%) translateY(0);
     }
 
+        /* Define the animation */
+        @keyframes pulse {
+      0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(242, 153, 74, 0.7);
+      }
+      50% {
+        transform: scale(1.1);
+        box-shadow: 0 0 0 10px rgba(242, 153, 74, 0);
+      }
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(242, 153, 74, 0);
+      }
+    }
 
+    /* Apply the animation to the button */
     #start-quiz-btn {
-      display: none;
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      padding: 20px 40px;
-      font-size: 24px;
-      background: #ffcc00;
-      color: black;
+      position: absolute;
+      top: 70px;
+      right: 20px;
+      padding: 10px 15px;
       border: none;
-      border-radius: 10px;
+      border-radius: 5px;
+      background: linear-gradient(to right, #f2994a, #f2c94c);
+      color: #fff;
       cursor: pointer;
-      animation: fadeIn 1.5s ease-in-out forwards;
+      display: none; /* Initially hidden */
+      animation: pulse 2s infinite; /* Apply the pulse animation */
     }
 
     #start-quiz-btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+      animation: none; /* Disable animation when button is disabled */
     }
+
+
   </style>
 </head>
 <body>

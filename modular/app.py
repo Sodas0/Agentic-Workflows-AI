@@ -64,6 +64,7 @@ def home():
     """
     Home page. Lists all chapters (based on PAGE_RANGES).
     """
+    session.clear()
     chapters = [
         {"number": i + 1, "start_page": start, "end_page": end}
         for i, (start, end) in enumerate(PAGE_RANGES)
@@ -113,6 +114,7 @@ def serve_chapter(chapter_number):
     button_count = sub_chapter[idx]-1
 
     if "chat_history" not in session:
+        print("Chat history not found in session. Initializing...")
         pre_message = (
             f"Introduce yourself and how you hope to help the user. We will be going through chapter {chapter_number}. "
             f"Summarize briefly the main idea of chapter {chapter_number}.1. Spark interest in the user and prepare them for the first MCQ you will generate."
@@ -126,6 +128,7 @@ def serve_chapter(chapter_number):
                 bot_response = value["messages"][-1].content
 
         # Store in session
+        print(bot_response)
         session["chat_history"].append({"sender": "bot", "message": bot_response})
         trim_chat_history()
     # print(session["chat_history"])
