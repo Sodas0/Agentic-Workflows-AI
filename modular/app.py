@@ -111,8 +111,8 @@ def serve_chapter(chapter_number):
     if "chat_history" not in session:
         pre_message = (
             f"Introduce yourself and how you hope to help the user. We will be going through chapter {chapter_number}. "
-            f"Summarize briefly the main idea of chapter {chapter_number}.1. Spark interest in the user and prepare them for the first MCQ you will generate."
-            f"Explain that the start quiz button will appear in the top right corner"
+            f"Summarize briefly the main idea of chapter {chapter_number}.1. Spark interest in the user and prepare them for the first MCQ you will generate. "
+            f"Explain that the start quiz button will appear in the top right corner."
         )
         session["chat_history"] = []
         bot_response = ""
@@ -123,6 +123,7 @@ def serve_chapter(chapter_number):
                 bot_response = value["messages"][-1].content
 
         # Store in session
+        print(bot_response)
         session["chat_history"].append({"sender": "bot", "message": bot_response})
         trim_chat_history()
     # print(session["chat_history"])
