@@ -1,319 +1,591 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chapter Viewer</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <style>
-        * {
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8">
+  <title>Chapter Viewer</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <style>
+    /* 
+      ======================
+      GENERAL PAGE STYLING
+      ======================
+    */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      display: flex;
+      font-family: 'Inter', Arial, sans-serif;
+      height: 100vh;
+      background: linear-gradient(to right, #1e3c72, #2a5298);
+      color: #060606;
+      justify-content: center;
+      align-items: center;
+    }
 
-        body {
-            margin: 0;
-            display: flex;
-            font-family: 'Inter', Arial, sans-serif;
-            height: 100vh;
-            background: linear-gradient(to right, #1e3c72, #2a5298);
-            color: #060606;
-            justify-content: center;
-            align-items: center;
-        }
+    /* 
+      ======================
+      MAIN CONTAINER
+      ======================
+    */
+    .container {
+      display: flex;
+      width: 100%;
+      height: 90%;
+      transition: all 0.3s ease-in-out;
+      position: relative; /* for absolute-positioned items like .toggle-pdf-button */
+    }
+    .pdf-container {
+      width: 0;
+      height: 100%;
+      overflow-y: auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+      display: none; /* toggled via JS */
+      transition: width 0.3s ease-in-out;
+    }
+    .chat-container {
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      background-color: #f9f9f9;
+      border-left: 1px solid #ccc;
+      display: flex;
+      flex-direction: column;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      transition: width 0.3s ease-in-out;
+      position: relative;
+    }
 
-        .container {
-            display: flex;
-            width: 100%;
-            height: 90%;
-            transition: all 0.3s ease-in-out;
-        }
+    /*
+      ======================
+      PDF + CHAT ELEMENTS
+      ======================
+    */
+    #chat-box {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding: 10px;
+      background: #f1f3f5;
+      border-radius: 8px;
+      border: 1px solid #000;
+    }
+    .toggle-pdf-button {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      padding: 10px 15px;
+      background: linear-gradient(to right, #4facfe, #00f2fe);
+      border: none;
+      border-radius: 5px;
+      color: white;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    .toggle-pdf-button:hover {
+      background: linear-gradient(to right, #00f2fe, #4facfe);
+    }
+    .def-btn {
+      position: absolute;
+      background: linear-gradient(to right, #56ccf2, #2f80ed);
+      border: none;
+      color: #FFFFFF;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.3s ease-in-out;
+      box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    .def-btn:hover {
+      background: linear-gradient(to right, #2f80ed, #56ccf2);
+      transform: translateY(-3px);
+      box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.3);
+    }
+    .btn-send {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(to right, #56ccf2, #2f80ed);
+      border: none;
+      color: #FFFFFF;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.3s ease-in-out;
+      box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+      margin-left: 10px;
+    }
+    .btn-send:hover {
+      background: linear-gradient(to right, #2f80ed, #56ccf2);
+      transform: translateY(-3px);
+      box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.3);
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
 
-        .pdf-container {
-            width: 0;
-            height: 100%;
-            overflow-y: auto;
-            background-color: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
-            display: none;
-            transition: width 0.3s ease-in-out;
-        }
+    /*
+      ======================
+      BUTTON SIDEBAR
+      ======================
+    */
+    .button-sidebar {
+      position: fixed;  /* Pin to viewport, not parent container */
+      left: 20px;       /* Distance from left edge */
+      top: 100px;       /* Distance from top */
+      display: flex;
+      flex-direction: column;
+      gap: 10px;        /* Space between buttons */
+      z-index: 999;     /* Ensure it appears above other elements */
+    }
+    
+    /* Buttons inside the sidebar */
+    .side-btn {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(to right, #56ccf2, #2f80ed);
+      border: none;
+      color: #FFFFFF;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease-in-out;
+      box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    .side-btn:hover {
+      background: linear-gradient(to right, #2f80ed, #56ccf2);
+      transform: translateX(5px);
+      box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.3);
+    }
 
-        .chat-container {
-            width: 100%;
-            height: 100%;
-            overflow-y: auto;
-            background-color: #f9f9f9;
-            border-left: 1px solid #ccc;
-            display: flex;
-            flex-direction: column;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            transition: width 0.3s ease-in-out;
-        }
+    /* 
+      ======================
+      CHAT MESSAGE STYLES
+      ======================
+    */
+    .bot-message {
+      text-align: left;
+      background-color: #e0e0e0;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin: 5px 0;
+      max-width: 60%;
+    }
+    .user-message {
+      text-align: right;
+      background-color: #56ccf2;
+      color: #ffffff;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin: 5px 0 5px auto;
+      max-width: 60%;
+    }
 
-        #chat-box {
-            flex-grow: 1;
-            overflow-y: auto;
-            padding: 10px;
-            background: #f1f3f5;
-            border-radius: 8px;
-            border: 1px solid #000;
-        }
+    /*
+      ======================
+      LOCKED BUTTON STYLES
+      ======================
+    */
+    .side-btn.locked {
+      opacity: 0.6;
+      cursor: not-allowed;
+      position: relative;
+    }
+    .side-btn.locked::before {
+      content: "🔒 ";
+      font-weight: bold;
+    }
+    .side-btn.locked:hover::after {
+      content: "Please complete the quiz first!";
+      position: absolute;
+      top: 50%;
+      left: 110%;
+      transform: translateY(-50%);
+      background: #333;
+      color: #fff;
+      padding: 5px 8px;
+      border-radius: 3px;
+      white-space: nowrap;
+      font-size: 0.9rem;
+      pointer-events: none;
+      opacity: 0.9;
+    }
 
-        .toggle-pdf-button {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            padding: 10px 15px;
-            background: linear-gradient(to right, #4facfe, #00f2fe);
-            border: none;
-            border-radius: 5px;
-            color: white;
-            cursor: pointer;
-            transition: 0.3s;
-        }
+    /*
+      ======================
+      QUIZ MODAL
+      ======================
+    */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 9998;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+    .modal-content {
+      background-color: white;
+      margin: 10% auto;
+      padding: 20px;
+      width: 50%;
+      text-align: center;
+      border-radius: 10px;
+      position: relative;
+    }
+    .close {
+      color: red;
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    .quiz-options label {
+      display: block;
+      padding: 10px;
+      cursor: pointer;
+    }
+    .nav-buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+    #submitQuiz {
+      display: none;
+      margin-top: 20px;
+      padding: 10px;
+      width: 100%;
+      cursor: pointer;
+    }
+    .progress-container {
+      width: 100%;
+      background-color: #e0e0e0;
+      border-radius: 8px;
+      margin: 10px 0;
+      height: 15px;
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 0%; /* start at 0% width */
+      background: linear-gradient(to right, #f2994a, #f2c94c);
+      transition: width 0.3s ease;
+    }
+    /* Container for the dropdown banner */
+    #dropdown-banner {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #2C3E50;
+      color: white;
+      border-radius: 10px;
+      padding: 20px;
+      width: 300px;
+      box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+      z-index: 9999;
+      font-family: 'Arial', sans-serif;
+      display: none; /* Hidden by default */
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
 
-        .toggle-pdf-button:hover {
-            background: linear-gradient(to right, #00f2fe, #4facfe);
-        }
-        .def-btn {
-            position: absolute;
-            /* top: 10px;
-            right: 10px; */
-            background: linear-gradient(to right, #56ccf2, #2f80ed);
-            border: none;
-            color: #FFFFFF;
-            padding: 8px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.3s ease-in-out;
-            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
-        }
-        .def-btn:hover {
-            background: linear-gradient(to right, #2f80ed, #56ccf2);
-            transform: translateY(-3px);
-            box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.3);
-        }
-        .btn-send {
-            /* position: absolute;
-            top: 10px;
-            right: 10px; */
-            display: flex;
-            justify-content: center; /* Move horizontally */
-            align-items: center; /* Move vertically */
-            background: linear-gradient(to right, #56ccf2, #2f80ed);
-            border: none;
-            color: #FFFFFF;
-            padding: 8px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.3s ease-in-out;
-            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
-            margin-left: 10px;
-        }
-        .btn-send:hover {
-            background: linear-gradient(to right, #2f80ed, #56ccf2);
-            transform: translateY(-3px);
-            box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.3);
-        }
+    #dropdown-banner.show {
+      opacity: 1;
+    }
 
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-        .button-sidebar {
-            position: absolute;
-            left: 70px;
-            top: 50px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px; /* Space between buttons */
-        }
+    /* Header section of the dropdown */
+    .dropdown-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #34495E;
+      padding-bottom: 10px;
+    }
 
-        .side-btn {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(to right, #56ccf2, #2f80ed);
-            border: none;
-            color: #FFFFFF;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease-in-out;
-            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
-        }
+    .dropdown-header h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: bold;
+    }
 
-        .side-btn:hover {
-            background: linear-gradient(to right, #2f80ed, #56ccf2);
-            transform: translateX(5px);
-            box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.3);
-        }
-        /* Bot messages - left-justified */
-        .bot-message {
-            text-align: left;
-            background-color: #e0e0e0;
-            border-radius: 8px;
-            padding: 8px 12px;
-            margin: 5px 0;
-            max-width: 60%;
-        }
+    .close-btn {
+      background: none;
+      border: none;
+      color: #E74C3C;
+      font-size: 20px;
+      cursor: pointer;
+    }
 
-        /* User messages - right-justified */
-        .user-message {
-            text-align: right;
-            background-color: #56ccf2;
-            color: #ffffff;
-            border-radius: 8px;
-            padding: 8px 12px;
-            margin: 5px 0 5px auto; /* Align to the right */
-            max-width: 60%;
-        }
+    .close-btn:hover {
+      color: #C0392B;
+    }
 
-    </style>
+    /* Body section of the dropdown */
+    .dropdown-body {
+      padding-top: 10px;
+    }
+
+    .score {
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    .feedback-list {
+      list-style-type: none;
+      padding: 0;
+    }
+
+    .feedback-list li {
+      font-size: 14px;
+      padding: 5px 0;
+    }
+
+    .feedback-list li:before {
+      content: "✔️ ";
+      color: #1ABC9C;
+      margin-right: 5px;
+    }
+
+    /* Smooth transition effects */
+    #dropdown-banner.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+        /* Define the animation */
+        @keyframes pulse {
+      0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(242, 153, 74, 0.7);
+      }
+      50% {
+        transform: scale(1.1);
+        box-shadow: 0 0 0 10px rgba(242, 153, 74, 0);
+      }
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(242, 153, 74, 0);
+      }
+    }
+
+    /* Apply the animation to the button */
+    #start-quiz-btn {
+      position: absolute;
+      top: 70px;
+      right: 20px;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 5px;
+      background: linear-gradient(to right, #f2994a, #f2c94c);
+      color: #fff;
+      cursor: pointer;
+      display: none; /* Initially hidden */
+      animation: pulse 2s infinite; /* Apply the pulse animation */
+    }
+
+    #start-quiz-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      animation: none; /* Disable animation when button is disabled */
+    }
+
+
+  </style>
 </head>
 <body>
+  <!-- Button to toggle PDF Viewer -->
+  <button class="toggle-pdf-button" onclick="togglePDF()">Toggle PDF Viewer</button>
 
-    <button class="toggle-pdf-button" onclick="togglePDF()">Toggle PDF Viewer</button>
-
-    <div class="container">
-        <div class="pdf-container" id="pdf-container">
-            <iframe src="/chapter_pdf/{{chapter_number}}" id="pdf-frame"></iframe>
-        </div>
-
-        <div class="chat-container" id="chat-container">
-            <div class="button-sidebar" id="buttonContainer"></div>
-            
-            <form action="/home" method="get">
-                <button type="submit" class="def-btn">Home</button>
-            </form>
-            <h2 class="text-center">BeaverBot Tutoring</h2>
-            <div id="chat-box" class="chat-box">
-                {% for entry in chat_history %}
-                    <div class="message {% if entry.sender == 'user' %}user-message{% else %}bot-message{% endif %}">
-                        <strong>{{ entry.sender.capitalize() }}:</strong> {{ entry.message }}
-                    </div>
-                {% endfor %}
-                
-            </div>
-            <form action="/chapter/{{chapter_number}}" method="post">
-                <div class="input-group mt-3">
-                    <input type="text" name="question" id="question" class="form-control" placeholder="Type your question..." autocomplete="off" required>
-                    <button class="btn-send">Send</button>
-                </div>
-            </form>
-        </div>
+  <div class="container">
+    <!-- PDF Container -->
+    <div class="pdf-container" id="pdf-container">
+      <iframe src="/chapter_pdf/{{ chapter_number }}" id="pdf-frame"></iframe>
     </div>
 
-    <!-- // populate subsection buttons -->
-    <script>
-        window.onload = function() { // Ensure the script runs after page load
-            const buttonCount = {{ button_count }}; // Get button count from Flask
-            const chapterNumber = {{ chapter_number }};
-            const buttonContainer = document.getElementById("buttonContainer");
-            const pdfFrame = document.getElementById("pdf-frame");
-    
-            if (!buttonContainer) {
-                console.error("buttonContainer not found!");
-                return;
-            }
-    
-            buttonContainer.innerHTML = ''; // Clear existing buttons
-    
-            for (let i = 1; i <= buttonCount; i++) {
-                const button = document.createElement("button");
-                button.classList.add("side-btn"); // Ensure correct class
-                button.textContent = chapterNumber + "." + i;
+    <!-- Chat Container -->
+    <div class="chat-container" id="chat-container">
+      <div class="button-sidebar" id="buttonContainer"></div>
 
-                button.addEventListener("click", function() {
-                    pdfFrame.src = `/chapter_pdf/${chapterNumber}/${i}`; // Update route dynamically
-                });
+      <!-- Home Button -->
+      <form action="/home" method="get">
+        <button type="submit" class="def-btn">Home</button>
+      </form>
 
-                buttonContainer.appendChild(button);
-            }
-        };
-    </script>
+      <h2 class="text-center">BeaverBot Tutoring</h2>
+
+      <!-- Chat Messages Box -->
+      <div id="chat-box" class="chat-box">
+        {% for entry in chat_history %}
+          <div class="message {% if entry.sender == 'user' %}user-message{% else %}bot-message{% endif %}">
+            <strong>{{ entry.sender.capitalize() }}:</strong> {{ entry.message }}
+          </div>
+        {% endfor %}
+      </div>
+
+      <!-- Chat Form -->
+      <form action="/chapter/{{ chapter_number }}" method="post" id="chat-form">
+        <div class="input-group mt-3">
+          <input
+            type="text"
+            name="question"
+            id="question"
+            class="form-control"
+            placeholder="Type your question..."
+            autocomplete="off"
+            required
+          >
+          <button class="btn-send">Send</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Button to Start Quiz -->
+  <button id="start-quiz-btn" onclick="startQuiz()" disabled>Start Quiz</button>
+
+  <!-- Quiz Modal -->
+  <div id="quizModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <h2 id="questionText"></h2>
+      <div class="progress-container">
+        <div class="progress-bar" id="quizProgressBar"></div>
+      </div>
+      
+      <div class="quiz-options" id="quizOptions"></div>
+
+      <div class="nav-buttons">
+        <button id="prevButton" onclick="prevQuestion()" disabled>Previous</button>
+        <button id="nextButton" onclick="nextQuestion()">Next</button>
+      </div>
+      <button id="submitQuiz" onclick="submitQuiz()">Submit Quiz</button>
+    </div>
+  </div>
+  <script>
+    let quiz = {};
+    let currentQuestionIndex = 0;
+    let answers = [];
+    let currentSubChapter = 0;
+    let subChapterQuizCompleted = [];
+    let chapterNumber;
+
+
+    // Function to check if a quiz is available and update the button
+    function checkQuizAvailability() {
+      fetch('/get_current_quiz')
+        .then(response => response.json())
+        .then(data => {
+          // console.log("quiz data:", data)
+          quiz = data["quiz"];
+          const startQuizBtn = document.getElementById('start-quiz-btn');
+          if (Object.keys(quiz).length > 0) {
+            startQuizBtn.style.display = 'block';
+            startQuizBtn.disabled = false;
+
+          } else {
+            startQuizBtn.style.display = 'none';
+            startQuizBtn.disabled = true;
+          }
+        })
+        .catch(error => console.error('Error:', error));
+    }
+
+    // Call this function when the page loads
+    window.onload = function() {
+      const buttonCount = JSON.parse('{{ button_count }}');
+      chapterNumber = JSON.parse('{{ chapter_number }}');
+      const pdfFrame = document.getElementById("pdf-frame");
+      // console.log("ButtonCount: ", buttonCount);
+      subChapterQuizCompleted = new Array(buttonCount).fill(false);
+      pdfFrame.src = `/chapter_pdf/${chapterNumber}`;
+      currentSubChapter = 0; 
     
-   <!--  // Toggle PDF -->
-    <script>
-        function togglePDF() {
-            const pdfContainer = document.getElementById('pdf-container');
-            const chatContainer = document.getElementById('chat-container');
-            
-            // Use computed styles to get the current state of the container
-            const pdfStyles = window.getComputedStyle(pdfContainer);
-            const currentDisplay = pdfStyles.display;
-            const currentWidth = pdfStyles.width;
-    
-            if (currentDisplay === 'none' || currentWidth === '0px') {
-                pdfContainer.style.display = 'block';
-                pdfContainer.style.width = '50%';
-                chatContainer.style.width = '50%';
-            } else {
-                pdfContainer.style.width = '0';
-                chatContainer.style.width = '100%';
-                setTimeout(() => {
-                    pdfContainer.style.display = 'none';
-                }, 300); // Ensures smooth animation before hiding
-            }
-        }
-    </script>
-<!-- // Work the chatbot -->
-<script>
-    // Listen for submissions on the chat form.
-    document.querySelector('form[action^="/chapter/"]').addEventListener('submit', async (event) => {
-      event.preventDefault(); // Prevent the default page reload
-  
+
+
+
+       // checkQuizAvailability();
+    };
+
+    // Toggle PDF viewer
+    function togglePDF() {
+      const pdfContainer = document.getElementById('pdf-container');
+      const chatContainer = document.getElementById('chat-container');
+      const pdfStyles = window.getComputedStyle(pdfContainer);
+      const currentDisplay = pdfStyles.display;
+      const currentWidth = pdfStyles.width;
+
+      if (currentDisplay === 'none' || currentWidth === '0px') {
+        pdfContainer.style.display = 'block';
+        pdfContainer.style.width = '50%';
+        chatContainer.style.width = '50%';
+      } else {
+        pdfContainer.style.width = '0';
+        chatContainer.style.width = '100%';
+        setTimeout(() => {
+          pdfContainer.style.display = 'none';
+        }, 300);
+      }
+    }
+
+    // Chat streaming
+    document.getElementById('chat-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
       const form = event.target;
       const formData = new FormData(form);
       const inputField = form.querySelector('input[name="question"]');
       const userQuestion = inputField.value.trim();
-  
-      // Get the chat box element
       const chatBox = document.getElementById('chat-box');
-  
-      // Append the user's message to the chat box.
+
       if (userQuestion) {
-        const userMessageDiv = document.createElement('div');
-        userMessageDiv.classList.add('message', 'user-message');
-        userMessageDiv.innerHTML = `<strong>User:</strong> ${userQuestion}`;
-        chatBox.appendChild(userMessageDiv);
+        const userMsg = document.createElement('div');
+        userMsg.classList.add('message', 'user-message');
+        userMsg.innerHTML = `<strong>User:</strong> ${userQuestion}`;
+        chatBox.appendChild(userMsg);
       }
-  
-      // Clear the input field immediately.
       inputField.value = '';
-  
+
       try {
-        // Send the user's message to the server.
         const response = await fetch(form.action, {
           method: 'POST',
           body: formData,
         });
-  
+        //console.log("Response: ", response);
         if (response.ok) {
-          // Create a new container for the bot's message with the "Bot:" label.
-          const botMessageDiv = document.createElement('div');
-          botMessageDiv.classList.add('message', 'bot-message');
-          botMessageDiv.innerHTML = `<strong>Bot:</strong> `;
-          chatBox.appendChild(botMessageDiv);
-  
-          // Set up a reader to process the streamed response.
+          const botMsg = document.createElement('div');
+          botMsg.classList.add('message', 'bot-message');
+          botMsg.innerHTML = `<strong>Bot:</strong> `;
+          chatBox.appendChild(botMsg);
+
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
           let done = false;
-  
-          // Process the response stream chunk by chunk.
+          let accumulatedText = '';
           while (!done) {
             const { value, done: doneReading } = await reader.read();
             done = doneReading;
             const chunk = decoder.decode(value, { stream: !done });
-            // Append the chunk to the bot's message container.
-            botMessageDiv.innerHTML += chunk;
-            // Optionally, scroll to the bottom as new text is added.
+            botMsg.innerHTML += chunk;
+            accumulatedText += chunk;
+            botMsg.innerHTML = formatText(accumulatedText);
             chatBox.scrollTop = chatBox.scrollHeight;
           }
+          botMsg.innerHTML = formatText(accumulatedText);
+          
+
+          // After processing the bot's response, check for quiz availability
+          checkQuizAvailability();
         } else {
           console.error('Failed to send the message');
         }
@@ -321,6 +593,246 @@
         console.error('Error:', error);
       }
     });
+
+    function startQuiz() {
+      if (Object.keys(quiz).length === 0) {
+        alert("No quiz available!");
+        return;
+      }
+      currentQuestionIndex = 0;
+      answers = Array(quiz.length).fill(null);
+      openModal();
+    }
+
+    function openModal() {
+      document.getElementById("quizModal").style.display = "block";
+      loadQuestion();
+    }
+
+    function closeModal() {
+      document.getElementById("quizModal").style.display = "none";
+    }
+
+    function loadQuestion() {
+      let questionData = quiz[currentQuestionIndex];
+      // console.log("Question data: ", questionData);
+      document.getElementById("questionText").innerText = questionData.question;
+
+      let optionsContainer = document.getElementById("quizOptions");
+      optionsContainer.innerHTML = "";
+
+      questionData.options.forEach((answer, index) => {
+        let label = document.createElement("label");
+        let radio = document.createElement("input");
+        radio.type = "radio";
+        radio.name = "answer";
+        radio.value = index;
+        radio.checked = (answers[currentQuestionIndex] === index);
+
+        radio.onclick = function() {
+          console.log("Selected answer: ", answer);
+          answers[currentQuestionIndex] = answer;
+        };
+        label.appendChild(radio);
+        label.appendChild(document.createTextNode(" " + answer));
+        optionsContainer.appendChild(label);
+      });
+
+      document.getElementById("prevButton").disabled = (currentQuestionIndex === 0);
+      document.getElementById("nextButton").disabled = (currentQuestionIndex === quiz.length - 1);
+      document.getElementById("submitQuiz").style.display =
+        (currentQuestionIndex === quiz.length - 1) ? "block" : "none";
+      
+      updateProgressBar();
+    }
+
+    function updateProgressBar() {
+      const total = quiz.length;
+      const progressPercentage = ((currentQuestionIndex + 1) / total) * 100;
+      const barEl = document.getElementById("quizProgressBar");
+      barEl.style.width = progressPercentage + "%";
+    }
+
+    function nextQuestion() {
+      if (currentQuestionIndex < quiz.length - 1) {
+        currentQuestionIndex++;
+        loadQuestion();
+      }
+    }
+
+    function prevQuestion() {
+      if (currentQuestionIndex > 0) {
+        currentQuestionIndex--;
+        loadQuestion();
+      }
+    }
+
+    async function submitQuiz() {
+      const quizWithAnswers = quiz.map((question, index) => {
+        const { options, ...rest } = question; // Destructure to exclude 'options'
+        return {
+          ...rest,
+          user_answer: answers[index] // Add the user's selected answer (index)
+        };
+      });
+      console.log("quiz with answers: ", quizWithAnswers);
+      closeModal();
+      const startQuizBtn = document.getElementById('start-quiz-btn');
+      startQuizBtn.style.display = 'none';
+      startQuizBtn.disabled = true;
+      
+      // Mark this sub-chapter as completed
+      subChapterQuizCompleted[currentSubChapter] = true;
+      // Unlock the next sub-chapter
+      
+      // console.log("Current sub chapter: ", currentSubChapter);
+      unlockNextSubChapter(currentSubChapter);
+      currentSubChapter += 1;
+      // console.log("Current sub chapter: ", currentSubChapter);
+      try {
+        // console.log("Chapter number: ",chapterNumber);
+        const response = await fetch("/submit-answer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                chapter_number: chapterNumber,
+                answers: quizWithAnswers
+            })
+        });
+
+        if (!response.ok) {
+            console.error("Failed to submit quiz:", response.statusText);
+            return;
+        }
+        // console.log(response);
+        const chatBox = document.getElementById('chat-box');
+
+        // Create bot message container
+        const botMsg = document.createElement('div');
+        botMsg.classList.add('message', 'bot-message');
+        botMsg.innerHTML = `<strong>Bot:</strong> `;
+        chatBox.appendChild(botMsg);
+
+        // Read and stream response
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let done = false;
+        let accumulatedText = '';
+        while (!done) {
+            const { value, done: doneReading } = await reader.read();
+            done = doneReading;
+            const chunk = decoder.decode(value, { stream: !done });
+            const formattedChunk = formatText(chunk);
+            botMsg.innerHTML += chunk;
+            accumulatedText += chunk;
+            botMsg.innerHTML = formatText(accumulatedText);
+            chatBox.scrollTop = chatBox.scrollHeight;
+          }
+          botMsg.innerHTML = formatText(accumulatedText);
+      } catch (error) {
+          console.error("Error submitting quiz:", error);
+      }
+      const submitBtn = document.getElementById('submitQuiz');
+      submitBtn.classList.add('fire-effect');
+    }
+
+    function displayResultsInDropdown(data) {
+      let dropdownBanner = document.getElementById('dropdown-banner');
+      if (!dropdownBanner) {
+        dropdownBanner = document.createElement('div');
+        dropdownBanner.id = 'dropdown-banner';
+        document.body.appendChild(dropdownBanner);
+      }
+
+      dropdownBanner.style.display = 'block';
+      dropdownBanner.classList.add('show');
+
+      dropdownBanner.innerHTML = `
+        <div class="dropdown-header">
+          <h3>Quiz Results</h3>
+          <button class="close-btn" onclick="closeDropdown()">×</button>
+        </div>
+        <div class="dropdown-body">
+          <div class="score">Score: ${data.score}%</div>
+          <ul class="feedback-list">
+            ${data.feedback.map(item => `<li>${item}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    function closeDropdown() {
+      let dropdownBanner = document.getElementById('dropdown-banner');
+      dropdownBanner.style.display = 'none';
+      dropdownBanner.classList.remove('show');
+    }
+
+    function unlockNextSubChapter(index) {
+      const nextIndex = index + 1;
+      const buttonContainer = document.getElementById("buttonContainer");
+      if (nextIndex < buttonContainer.children.length) {
+        const nextBtn = buttonContainer.children[nextIndex];
+        nextBtn.disabled = false;
+        nextBtn.classList.remove("locked");
+      }
+    }
+
+      // Function to handle horizontal rules (--- or ___)
+      function formatHorizontalRules(text) {
+          const hrPattern = /^(---|___)$/gm;
+          return text.replace(hrPattern, () => {
+              return `<hr />`;
+          });
+      }
+
+      function formatBold(text) {
+        const boldPattern = /(\*\*|__)(.*?)\1/g;
+        return text.replace(boldPattern, (match, p1, p2) => {
+            if (p2.endsWith(':')) {
+                // Bold with colon, styled differently
+                return `<strong style="font-size: 1.4em; font-weight: bold; color: #333">${p2}</strong>`;
+            } else {
+                // Regular bold within a sentence
+                return `<strong font-weight: bold;">${p2}</strong>`;
+            }
+        });
+    }
+
+      function formatLists(text) {
+        const listPattern = /(^|\n)([-*])\s+(.*)/g;  // Match lines that start with `-` or `*`
+        return text.replace(listPattern, (match, p1, p2, p3) => {
+            // Wrap list items with <li> tags and wrap all items with <ul>
+            if (p1 === '\n') {
+                return `<ul><li>${p3}</li></ul>`;
+            } else {
+                return `<li>${p3}</li>`;
+            }
+        });
+    }
+
+    function formatBlockquotes(text) {
+        // Convert blockquotes with '>' into <blockquote> elements
+        return text.replace(/^>\s*(.*?)$/gm, (match, p1) => {
+            return `<blockquote>${p1}</blockquote>`;
+        });
+    }
+
+    function formatCodeBlocks(text) {
+        // Convert triple backticks (```) into <pre><code> blocks
+        return text.replace(/```(.*?)```/gs, (match, p1) => {
+            return `<pre><code>${p1.trim()}</code></pre>`;
+        });
+    }
+    function formatText(text) {
+      let formattedText = formatBold(text);   // Handle bold formatting first
+      formattedText = formatLists(formattedText);  // Then handle list formatting
+      formattedText = formatBlockquotes(formattedText);  // Then handle blockquotes
+      formattedText = formatCodeBlocks(formattedText);  // Finally, handle code blocks
+      formattedText = formatHorizontalRules(formattedText);
+
+      // Replace newline characters with <br> for line breaks
+      return formattedText.replace(/\n/g, '<br/>');
+  }
   </script>
 </body>
 </html>
