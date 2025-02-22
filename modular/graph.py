@@ -31,7 +31,7 @@ systemPrompt = SystemMessage(
         Determining Quiz Readiness:
 
         As the conversation progresses, evaluate whether the student has grasped the key concepts.
-        If they demonstrate readiness, generate a short MCQ quiz focusing on the subchapter.
+        If they demonstrate readiness, generate a MCQ quiz focusing on the subchapter at a length resonable for the amount of topics in the subsection.
         Structure the quiz as a JSON object, ensuring questions align with the chapters learning goals.
         Quiz Generation Format:
         When the student is ready, return a JSON object structured as follows:

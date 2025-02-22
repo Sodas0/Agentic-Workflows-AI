@@ -16,18 +16,17 @@ from flask_session import Session
 # 1) Import quiz tool:
 from tools import evaluate_quiz_answers
 
+
+
 answers = []  # Store user quiz answers in memory (global list)
 
 # ============= Load environment variables =============
 load_dotenv()
 
 app = Flask(__name__)
-app.config["SESSION_TYPE"] = "filesystem"
-app.config["SESSION_FILE_DIR"] = "./flask_sessions"  # Directory for session files
-app.config["SESSION_PERMANENT"] = False  # Do not persist across restarts
-app.config["SESSION_USE_SIGNER"] = True  # Secure the session
+
 app.secret_key = os.urandom(24)
-Session(app)
+
 
 
 emoji_pool = [
@@ -52,6 +51,13 @@ sub_chapter = get_num_buttons(PAGE_RANGE_PATH)
 if not os.path.exists(SECTION_PATH):
     save_section_pdf(PDF_PATH, PAGE_RANGE_PATH, SECTION_PATH)
 
+
+MAX_SESSION_SIZE = 1200
+
+def trim_chat_history():
+    """Trims the chat history to fit within the session size limit."""
+    while len(str(session.get("chat_history", ""))) > MAX_SESSION_SIZE:
+        session["chat_history"].pop(0)  # Remove the oldest message
 
 @app.route("/", methods=["GET"])
 def home():
@@ -121,13 +127,13 @@ def serve_chapter(chapter_number):
 
         # Store in session
         session["chat_history"].append({"sender": "bot", "message": bot_response})
-
+        trim_chat_history()
+    # print(session["chat_history"])
     quiz = {}
     if request.method == "POST":
         user_question = request.form.get("question", "").strip()
         if user_question:
             session["chat_history"].append({"sender": "user", "message": user_question})
-            
             final_response = ""
 
             # Process LLM response before streaming
@@ -211,7 +217,7 @@ def submit_answers():
     prompt = (
         "Your task is to walk the user through there quiz, evaluating the answers and providing feedback that can help them remember the answer or achieve the correct answer. "
         "You will do this for the first question, holding off on providing feedback for the next question until the user responds to the feedback"
-        "Once you are done prepare the user to move on to the next sub section, giving a summary of the current section. "
+        "Once you are done prepare the user to move on to the next sub section, giving a summary of the current section. And create an engaging conversation before generating the next quiz"
         "Remember you will provide a quiz for the next section once the user is ready. "
         "Here is their quiz: "
         f"{json.dumps(submitted_answers)}"
@@ -238,3 +244,4 @@ def submit_answers():
 
 if __name__ == "__main__":
     app.run(debug=True)
+

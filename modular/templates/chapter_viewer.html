@@ -364,17 +364,21 @@
       transform: translateX(-50%) translateY(0);
     }
 
+
     #start-quiz-btn {
-      position: absolute;
-      top: 70px;
-      right: 20px;
-      padding: 10px 15px;
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 20px 40px;
+      font-size: 24px;
+      background: #ffcc00;
+      color: black;
       border: none;
-      border-radius: 5px;
-      background: linear-gradient(to right, #f2994a, #f2c94c);
-      color: #fff;
+      border-radius: 10px;
       cursor: pointer;
-      display: none; /* Initially hidden */
+      animation: fadeIn 1.5s ease-in-out forwards;
     }
 
     #start-quiz-btn:disabled {
@@ -452,7 +456,6 @@
       <button id="submitQuiz" onclick="submitQuiz()">Submit Quiz</button>
     </div>
   </div>
-
   <script>
     let quiz = {};
     let currentQuestionIndex = 0;
@@ -460,6 +463,7 @@
     let currentSubChapter = 0;
     let subChapterQuizCompleted = [];
     let chapterNumber;
+
 
     // Function to check if a quiz is available and update the button
     function checkQuizAvailability() {
@@ -472,6 +476,7 @@
           if (Object.keys(quiz).length > 0) {
             startQuizBtn.style.display = 'block';
             startQuizBtn.disabled = false;
+
           } else {
             startQuizBtn.style.display = 'none';
             startQuizBtn.disabled = true;
@@ -633,7 +638,8 @@
         radio.checked = (answers[currentQuestionIndex] === index);
 
         radio.onclick = function() {
-          answers[currentQuestionIndex] = index;
+          console.log("Selected answer: ", answer);
+          answers[currentQuestionIndex] = answer;
         };
         label.appendChild(radio);
         label.appendChild(document.createTextNode(" " + answer));
@@ -670,11 +676,14 @@
     }
 
     async function submitQuiz() {
-      const quizWithAnswers = quiz.map((question, index) => ({
-        ...question,
-        user_answer: answers[index] // Add the user's selected answer (index)
-      }));
-      // console.log("quiz with answers: ", quizWithAnswers);
+      const quizWithAnswers = quiz.map((question, index) => {
+        const { options, ...rest } = question; // Destructure to exclude 'options'
+        return {
+          ...rest,
+          user_answer: answers[index] // Add the user's selected answer (index)
+        };
+      });
+      console.log("quiz with answers: ", quizWithAnswers);
       closeModal();
       const startQuizBtn = document.getElementById('start-quiz-btn');
       startQuizBtn.style.display = 'none';
@@ -731,6 +740,8 @@
       } catch (error) {
           console.error("Error submitting quiz:", error);
       }
+      const submitBtn = document.getElementById('submitQuiz');
+      submitBtn.classList.add('fire-effect');
     }
 
     function displayResultsInDropdown(data) {
