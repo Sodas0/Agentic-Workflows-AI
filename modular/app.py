@@ -1,40 +1,49 @@
-from flask import Flask, render_template, request, session, send_file, jsonify, Response, stream_with_context
+import io
+import os
+from dotenv import load_dotenv
+import random
+
+# ============= Load environment variables =============
+load_dotenv()
+
+# Get API keys as a list
+API_KEYS = os.getenv("OPENAI_API_KEYS").split(",")
+def get_random_api_key():
+    """Selects a random API key from the list."""
+    return random.choice(API_KEYS)
+
+selected_api_key = get_random_api_key()
+print("Selected API Key:", selected_api_key)
+os.environ["OPENAI_API_KEY"] = selected_api_key
+
+from flask import Flask, render_template, request, session, send_file, jsonify, Response, stream_with_context, redirect
 from langchain_openai import ChatOpenAI
 from graph import build_graph
 from dotenv import load_dotenv
 from bookmark import initialize_bookmarks, get_page_ranges, get_num_buttons, save_section_pdf
 from PyPDF2 import PdfReader, PdfWriter
-import random
-import os
-import io
+
+
 import time
 import re
 import json
+
+
+from datetime import datetime
 
 from flask_session import Session
 
 # 1) Import quiz tool:
 from tools import evaluate_quiz_answers
 
-
-
 answers = []  # Store user quiz answers in memory (global list)
-
-# ============= Load environment variables =============
-load_dotenv()
 
 app = Flask(__name__)
 
 app.secret_key = os.urandom(24)
 
+thread_id = "particapant_"
 
-
-emoji_pool = [
-    "🍅","😂","😎","😍","🤓","😜","🤩","🥳","😇","🤖","👻","👽","😩","🙈",
-    "🐭","🐶","🦊","🐼","🐸","🐵","🦫"
-]
-thread_id = ''.join(random.choices(emoji_pool, k=7))
-print("THREAD ID =>", thread_id)
 
 # ============= Initialize LLM & Graph =============
 llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)
@@ -59,17 +68,27 @@ def trim_chat_history():
     while len(str(session.get("chat_history", ""))) > MAX_SESSION_SIZE:
         session["chat_history"].pop(0)  # Remove the oldest message
 
-@app.route("/", methods=["GET"])
+@app.route("/", methods=["GET", "POST"])
 def home():
     """
-    Home page. Lists all chapters (based on PAGE_RANGES).
+    Home page. Used to correlate Qualtrics ID to chatlogs in Langsmith and our own logs.
+    Now this page allows the user to enter a four-digit code which is stored in the session
+    (as 'user_id'). Upon valid entry, the user is redirected to /chapter/6/1.
     """
-    session.clear()
-    chapters = [
-        {"number": i + 1, "start_page": start, "end_page": end}
-        for i, (start, end) in enumerate(PAGE_RANGES)
-    ]
-    return render_template("home.html", chapters=chapters)
+    if request.method == "POST":
+        code = request.form.get("code", "").strip()
+        if not (code.isdigit() and len(code) == 4):
+            error = "Please enter a valid 4-digit code."
+            return render_template("home.html", error=error)
+        
+        now = datetime.now()
+        date_str = now.strftime("%H:%M:%S")
+        session["user_id"] = thread_id + str(code) + date_str
+        
+        print("="*40)
+        print(f'Detected ID: {session["user_id"]}')
+        return redirect("/chapter/6")
+    return render_template("home.html", error=None)
 
 @app.route("/chapter_pdf/<int:chapter_number>", methods=["GET"])
 def serve_chapter_pdf(chapter_number):
@@ -117,13 +136,14 @@ def serve_chapter(chapter_number):
         print("Chat history not found in session. Initializing...")
         pre_message = (
             f"Introduce yourself and how you hope to help the user. We will be going through chapter {chapter_number}. "
-            f"Summarize briefly the main idea of chapter {chapter_number}.1. Spark interest in the user and prepare them for the first MCQ you will generate."
+            f"Summarize briefly the main idea of chapter {chapter_number}.1. Spark interest in the user and prepare them for the first MCQ you will generate. "
+            "If no other sub-section exists, congratuate the user on completing the chapter and tell them that you remain open to discussion."
         )
         session["chat_history"] = []
         bot_response = ""
 
         # Stream the LLM's answer
-        for event in graph.stream({"messages": [("user", pre_message)]}, {"configurable":{"thread_id":thread_id}}):
+        for event in graph.stream({"messages": [("user", pre_message)]}, {"configurable":{"thread_id":session["user_id"]}}):
             for value in event.values():
                 bot_response = value["messages"][-1].content
 
@@ -142,7 +162,7 @@ def serve_chapter(chapter_number):
             # Process LLM response before streaming
             for event in graph.stream(
                 {"messages": [("user", user_question)]},
-                {"configurable": {"thread_id": thread_id}}
+                {"configurable": {"thread_id": session["user_id"]}}
             ):
                 for value in event.values():
                     final_response = value["messages"][-1].content
@@ -218,18 +238,16 @@ def submit_answers():
     print("quiz ----------------")
 
     prompt = (
-        "Your task is to walk the user through there quiz, evaluating the answers and providing feedback that can help them remember the answer or achieve the correct answer. "
-        "You will do this for the first question, holding off on providing feedback for the next question until the user responds to the feedback"
-        "Once you are done prepare the user to move on to the next sub section, giving a summary of the current section. And create an engaging conversation before generating the next quiz"
-        "Remember you will provide a quiz for the next section once the user is ready. "
-        "Here is their quiz: "
+        "Evaluate the following quiz answers, according to the given instructions."
+        "After evaluation is done, prepare the user to move onto the next sub-section, only if another sub-section exists."
+        "If no other sub-section exists, congratuate the user on completing the chapter and tell them that you remain open to discussion."
         f"{json.dumps(submitted_answers)}"
     )
     session["chat_history"] = session.get("chat_history")
     bot_response = ""
     session["chat_history"].append({"sender": "user", "message": prompt})
     # Stream the LLM's answer
-    for event in graph.stream({"messages": [("user", prompt)]}, {"configurable":{"thread_id":thread_id}}):
+    for event in graph.stream({"messages": [("user", prompt)]}, {"configurable":{"thread_id":session["user_id"]}}):
         for value in event.values():
             bot_response = value["messages"][-1].content
     print(bot_response)

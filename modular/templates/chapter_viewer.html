@@ -506,39 +506,14 @@
     window.onload = function() {
       const buttonCount = JSON.parse('{{ button_count }}');
       chapterNumber = JSON.parse('{{ chapter_number }}');
-      const buttonContainer = document.getElementById("buttonContainer");
       const pdfFrame = document.getElementById("pdf-frame");
       // console.log("ButtonCount: ", buttonCount);
       subChapterQuizCompleted = new Array(buttonCount).fill(false);
-      pdfFrame.src = `/chapter_pdf/${chapterNumber}/1`;
+      pdfFrame.src = `/chapter_pdf/${chapterNumber}`;
       currentSubChapter = 0; 
     
 
-      for (let i = 0; i < buttonCount; i++) {
-        const label = chapterNumber + "." + (i + 1);
-        const btn = document.createElement("button");
-        btn.classList.add("side-btn");
-        btn.textContent = label;
 
-        // Lock all sub-chapters except the first
-        if (i > 0) {
-          btn.disabled = true;
-          btn.classList.add("locked");
-        }
-
-        btn.addEventListener("click", (event) => {
-          // If locked, do nothing (or show a popup)
-          if (btn.disabled) {
-            event.preventDefault();
-            return;
-          }
-          // If unlocked, load the PDF
-          pdfFrame.src = `/chapter_pdf/${chapterNumber}/${i+1}`;
-          currentSubChapter = i;
-        });
-
-        buttonContainer.appendChild(btn);
-      }
 
        // checkQuizAvailability();
     };
