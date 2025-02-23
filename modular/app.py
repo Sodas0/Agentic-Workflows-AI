@@ -40,7 +40,7 @@ answers = []  # Store user quiz answers in memory (global list)
 
 app = Flask(__name__)
 
-app.secret_key = os.urandom(24)
+app.secret_key = "I_got_a_secret"#os.urandom(24)
 
 thread_id = "particapant_"
 
@@ -80,10 +80,11 @@ def home():
         if not (code.isdigit() and len(code) == 4):
             error = "Please enter a valid 4-digit code."
             return render_template("home.html", error=error)
-        
+        session["user_code"] = code
         now = datetime.now()
         date_str = now.strftime("%H:%M:%S")
-        session["user_id"] = thread_id + str(code) + date_str
+        session["user_id"] = thread_id + str(code)
+        print("Current session: ", session["user_id"])
         
         print("="*40)
         print(f'Detected ID: {session["user_id"]}')
@@ -129,6 +130,12 @@ def serve_chapter(chapter_number):
     idx = chapter_number - 1
     if idx < 0 or idx >= len(sub_chapter):
         return f"Chapter {chapter_number} not found.", 404
+    user_code = session.get("user_code")
+    session["user_id"] = thread_id + str(user_code)
+    print("Current session: ", session["user_id"])
+    
+    if "user_id" not in session:
+        print("USER ID NOT IN SESSION", session["user_id"])
 
     button_count = sub_chapter[idx]-1
 
@@ -265,4 +272,5 @@ def submit_answers():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
 
