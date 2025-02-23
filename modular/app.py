@@ -80,7 +80,7 @@ def home():
         if not (code.isdigit() and len(code) == 4):
             error = "Please enter a valid 4-digit code."
             return render_template("home.html", error=error)
-        
+        session["user_code"] = code
         now = datetime.now()
         date_str = now.strftime("%H:%M:%S")
         session["user_id"] = thread_id + str(code)
@@ -130,8 +130,8 @@ def serve_chapter(chapter_number):
     idx = chapter_number - 1
     if idx < 0 or idx >= len(sub_chapter):
         return f"Chapter {chapter_number} not found.", 404
-    
-    session["user_id"] = thread_id + str(code) + "_"
+    user_code = session.get("user_code")
+    session["user_id"] = thread_id + str(user_code)
     print("Current session: ", session["user_id"])
     
     if "user_id" not in session:
