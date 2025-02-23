@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script> <!-- PDF.js CDN -->
+    <style>
+        /* Your existing styles */
+        .container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+        .pdf-container {
+            width: 50%;
+            height: 100%;
+            overflow-y: auto;
+            background-color: #fff;
+            position: relative;
+        }
+        .chat-container {
+            width: 50%;
+            height: 100%;
+            background-color: #f9f9f9;
+            border-left: 1px solid #ccc;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            overflow-y: scroll;
+        }
+        .paragraph {
+            margin-bottom: 20px;
+            font-size: 18px;
+            line-height: 1.5;
+            display: none;  /* Start with hidden paragraphs */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="pdf-container">
+            <canvas id="pdf-canvas"></canvas> <!-- Canvas for rendering PDF -->
+        </div>
+        <div class="chat-container" id="chat-container">
+            <!-- Paragraphs will be inserted here -->
+        </div>
+    </div>
+
+    <script>
+        // Dynamic chapter number, this can be set as per the page or context
+        const url = `/chapter_pdf/{{chapter_number}}`; // Use API endpoint to get the PDF
+
+        // Initialize PDF.js
+        pdfjsLib.getDocument(url).promise.then(function (pdfDoc_) {
+            pdfDoc = pdfDoc_;
+            extractText(pdfDoc);  // Extract text after loading the PDF
+        });
+
+        let pdfDoc = null;
+        let currentPage = 0;
+        const canvas = document.getElementById("pdf-canvas");
+        const ctx = canvas.getContext("2d");
+        const chatContainer = document.getElementById("chat-container");
+
+        // Function to extract text from the PDF
+        function extractText(pdfDoc) {
+            let pagePromises = [];
+
+            // Loop through all pages and extract text
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                pagePromises.push(pdfDoc.getPage(i).then(page => {
+                    return page.getTextContent();
+                }));
+            }
+
+            // Once all pages are processed
+            Promise.all(pagePromises).then(pageTexts => {
+                const paragraphs = [];
+                let currentParagraph = '';
+                let lastVerticalPosition = -1000;  // Initialize to a large value
+
+                pageTexts.forEach(pageText => {
+                    pageText.items.forEach(item => {
+                        // Check if this item starts a new paragraph
+                        if (item.transform[5] - lastVerticalPosition > 10) {  // Vertical position threshold
+                            if (currentParagraph.trim()) {
+                                paragraphs.push(currentParagraph);  // Push the current paragraph
+                            }
+                            currentParagraph = '';  // Reset for new paragraph
+                        }
+
+                        // Check for indentation and apply it
+                        let indent = item.transform[4] < 20 ? '    ' : '';  // Consider indentation if the x-position is low
+                        currentParagraph += indent + item.str + ' ';  // Add text with indentation
+
+                        // Update last vertical position
+                        lastVerticalPosition = item.transform[5];
+                    });
+                });
+
+                // Add the last paragraph
+                if (currentParagraph.trim()) {
+                    paragraphs.push(currentParagraph);
+                }
+
+                renderParagraphs(paragraphs);  // Render the paragraphs
+            });
+        }
+
+        // Function to render paragraphs
+        function renderParagraphs(paragraphs) {
+            paragraphs.forEach((paragraph, index) => {
+                const pElement = document.createElement('div');
+                pElement.classList.add('paragraph');
+                pElement.innerText = paragraph;
+                chatContainer.appendChild(pElement);
+            });
+
+            // Initially display the first paragraph
+            showParagraph(0);
+        }
+
+        // Function to show the next paragraph
+        function showParagraph(paragraphIndex) {
+            const allParagraphs = document.querySelectorAll('.paragraph');
+            if (paragraphIndex < allParagraphs.length) {
+                allParagraphs[paragraphIndex].style.display = 'block';
+            }
+        }
+
+        // Handle right arrow key to reveal the next paragraph
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "ArrowRight") {
+                const allParagraphs = document.querySelectorAll('.paragraph');
+                if (currentPage < allParagraphs.length) {
+                    currentPage++;
+                    showParagraph(currentPage);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
