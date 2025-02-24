@@ -61,12 +61,14 @@ if not os.path.exists(SECTION_PATH):
     save_section_pdf(PDF_PATH, PAGE_RANGE_PATH, SECTION_PATH)
 
 
-MAX_SESSION_SIZE = 1200
+MAX_SESSION_SIZE = 10000
 
 def trim_chat_history():
     """Trims the chat history to fit within the session size limit."""
+    print("Len of session chat history" , len(str(session.get("chat_history", ""))))
     while len(str(session.get("chat_history", ""))) > MAX_SESSION_SIZE:
-        session["chat_history"].pop(0)  # Remove the oldest message
+        
+        print("removing message", session["chat_history"].pop(0))  # Remove the oldest message
 
 @app.route("/", methods=["GET", "POST"])
 def home():
@@ -76,6 +78,7 @@ def home():
     (as 'user_id'). Upon valid entry, the user is redirected to /chapter/6/1.
     """
     if request.method == "POST":
+        session.clear()
         code = request.form.get("code", "").strip()
         if not (code.isdigit() and len(code) == 4):
             error = "Please enter a valid 4-digit code."
@@ -155,9 +158,10 @@ def serve_chapter(chapter_number):
                 bot_response = value["messages"][-1].content
 
         # Store in session
-        print(bot_response)
+        # print(bot_response)
         session["chat_history"].append({"sender": "bot", "message": bot_response})
         trim_chat_history()
+        
     # print(session["chat_history"])
     quiz = {}
     if request.method == "POST":
@@ -190,6 +194,7 @@ def serve_chapter(chapter_number):
 
             session["chat_history"].append({"sender": "bot", "message": final_response})
             session.modified = True
+            trim_chat_history()
 
             def generate():
                 # Stream out the cleaned final_response char by char
@@ -199,17 +204,18 @@ def serve_chapter(chapter_number):
 
             return Response(stream_with_context(generate()), mimetype="text/plain")
 
-        # If no user question, just re-render the chat
-        return render_template("chat_messages.html", chat_history=session["chat_history"])
+        
 
     # If GET request, show chapter_viewer.html
-    return render_template(
-        "chapter_viewer.html",
-        chapter_number=chapter_number,
-        button_count=button_count,
-        chat_history=session["chat_history"],
-        quiz=json.dumps(quiz)  # Pass extracted quiz
-    )
+    if request.method == "GET":
+        print("GET request received.")
+        return render_template(
+            "chapter_viewer.html",
+            chapter_number=chapter_number,
+            button_count=button_count,
+            chat_history=session["chat_history"],
+            quiz=json.dumps(quiz)  # Pass extracted quiz
+        )
 
 @app.route("/get_current_quiz", methods=["GET"])
 def get_current_quiz():
@@ -239,14 +245,13 @@ def submit_answers():
     """
     request_data = request.json
     submitted_answers = request_data["answers"]
-    chapter_number = request_data["chapter_number"]
     print("quiz ----------------")
     print(submitted_answers)
     print("quiz ----------------")
 
     prompt = (
         "Evaluate the following quiz answers, according to the given instructions."
-        "After evaluation is done, prepare the user to move onto the next sub-section, only if another sub-section exists."
+        "After evaluation is done, prepare the user to move onto the next sub-section, only if another sub-section exists. In chapter 6 there is 6.1 6.2 6.3 and 6.4."
         "If no other sub-section exists, congratuate the user on completing the chapter and tell them that you remain open to discussion."
         f"{json.dumps(submitted_answers)}"
     )
