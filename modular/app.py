@@ -88,7 +88,8 @@ def home():
         session["user_code"] = code
         now = datetime.now()
         date_str = "_" + now.strftime("%H:%M:%S")
-        session["user_id"] = thread_id + str(code) + date_str
+        session["user_id"] = thread_id + str(code)
+        
         print("Current session: ", session["user_id"])
         
         print("="*40)
