@@ -80,13 +80,16 @@ def home():
     if request.method == "POST":
         session.clear()
         code = request.form.get("code", "").strip()
+        
         if not (code.isdigit() and len(code) == 4):
             error = "Please enter a valid 4-digit code."
+            
             return render_template("home.html", error=error)
         session["user_code"] = code
         now = datetime.now()
-        date_str = now.strftime("%H:%M:%S")
+        date_str = "_" + now.strftime("%H:%M:%S")
         session["user_id"] = thread_id + str(code)
+        
         print("Current session: ", session["user_id"])
         
         print("="*40)
@@ -262,9 +265,10 @@ def submit_answers():
     for event in graph.stream({"messages": [("user", prompt)]}, {"configurable":{"thread_id":session["user_id"]}}):
         for value in event.values():
             bot_response = value["messages"][-1].content
-    print(bot_response)
+    #print(bot_response)
     # Store in session
     session["chat_history"].append({"sender": "bot", "message": bot_response})
+    
     def generate():
         # Stream out the cleaned final_response char by char
         for char in bot_response:
@@ -277,5 +281,3 @@ def submit_answers():
 
 if __name__ == "__main__":
     app.run(debug=True)
-
-
