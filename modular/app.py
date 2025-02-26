@@ -150,7 +150,8 @@ def serve_chapter(chapter_number):
         pre_message = (
             f"Introduce yourself and how you hope to help the user. We will be going through chapter {chapter_number}. "
             f"Summarize briefly the main idea of chapter {chapter_number}.1. Spark interest in the user and prepare them for the first MCQ you will generate. "
-            "If no other sub-section exists, congratuate the user on completing the chapter and tell them that you remain open to discussion."
+            f"Keep this greeting message concise"
+        
         )
         session["chat_history"] = []
         bot_response = ""
