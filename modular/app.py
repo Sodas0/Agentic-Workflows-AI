@@ -42,7 +42,7 @@ app = Flask(__name__)
 
 app.secret_key = "I_got_a_secret"#os.urandom(24)
 
-thread_id = "particapant_"
+thread_id = "participant_"
 
 
 # ============= Initialize LLM & Graph =============
@@ -281,4 +281,4 @@ def submit_answers():
     return Response(stream_with_context(generate()), mimetype="text/plain")
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)
