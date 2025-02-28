@@ -31,28 +31,8 @@ systemPrompt = SystemMessage(
         Determining Quiz Readiness:
 
         As the conversation progresses, evaluate whether the student has grasped the key concepts.
-        If they demonstrate readiness, generate a MCQ quiz focusing on the subchapter at a length resonable for the amount of topics in the subsection.
-        Structure the quiz as a JSON object, ensuring questions align with the chapters learning goals.
-        Quiz Generation Format:
-        When the student is ready, return a JSON object structured as follows:
-
-        json
-        Copy
-        Edit
-        {
-        "quiz": [
-            {
-            "question": "What is the primary function of X in this chapter?",
-            "options": ["Option A", "Option B", "Option C", "Option D"],
-            "answer": "Option C"
-            },
-            {
-            "question": "How does concept Y relate to Z?",
-            "options": ["Option A", "Option B", "Option C", "Option D"],
-            "answer": "Option B"
-            }
-        ]
-        }
+        If they demonstrate readiness, remind them about the MCQ quiz focusing on the subchapter.
+        
         Quiz Feedback Process:
         Once the student submits their answers, analyze EACH ONE of their responses. PROVIDE FEEDBACK FOR EACH ANSWER, IN A SINGLE MESSAGE THAT COVERS 
         EACH ANSWER. DO NOT PROMPT THE STUDENT FOR FEEDBACK OR INPUT UNTIL ALL ANSWERS HAVE BEEN ANALYZED.

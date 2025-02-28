@@ -294,7 +294,7 @@
       padding: 20px;
       width: 300px;
       box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
-      z-index: 9999;
+      z-index: 9998;
       font-family: 'Arial', sans-serif;
       display: none;
       opacity: 0;
@@ -511,24 +511,11 @@
     let subChapterQuizCompleted = [];
     let chapterNumber;
 
-    // Function to check if a quiz is available and update the button
-    function checkQuizAvailability() {
-      fetch('/get_current_quiz')
-        .then(response => response.json())
-        .then(data => {
-          quiz = data["quiz"];
-          const startQuizBtn = document.getElementById('start-quiz-btn');
-          if (Object.keys(quiz).length > 0) {
-            startQuizBtn.style.display = 'block';
-            startQuizBtn.disabled = false;
-          } else {
-            startQuizBtn.style.display = 'none';
-            startQuizBtn.disabled = true;
-          }
-        })
-        .catch(error => console.error('Error:', error));
-    }
 
+
+    const startQuizBtn = document.getElementById('start-quiz-btn');
+    startQuizBtn.disabled = false;
+    startQuizBtn.style.display = 'block';
     // Call this function when the page loads
     window.onload = function() {
       const buttonCount = JSON.parse('{{ button_count }}');
@@ -538,8 +525,9 @@
       pdfFrame.src = `/chapter_pdf/${chapterNumber}`;
       currentSubChapter = 0;
       startInactivityTimer();
-      // checkQuizAvailability(); // Uncomment if you want to check quiz on load
+      
     };
+
 
     // Toggle PDF viewer
     function togglePDF() {
@@ -612,7 +600,6 @@
             chatBox.scrollTop = chatBox.scrollHeight;
           }
           botMsg.innerHTML = `<strong>Bot:</strong> ` + formatText(accumulatedText);
-          checkQuizAvailability();
         } else {
           console.error('Failed to send the message');
         }
@@ -621,7 +608,8 @@
       }
     });
 
-    function startQuiz() {
+    async function startQuiz() {
+      await unlockNextSubChapterQuiz();
       if (Object.keys(quiz).length === 0) {
         alert("No quiz available!");
         return;
@@ -647,7 +635,7 @@
       let optionsContainer = document.getElementById("quizOptions");
       optionsContainer.innerHTML = "";
 
-      questionData.options.forEach((answer, index) => {
+      questionData.answers.forEach((answer, index) => {
         let label = document.createElement("label");
         let radio = document.createElement("input");
         radio.type = "radio";
@@ -693,27 +681,29 @@
     }
 
     async function submitQuiz() {
+
       const quizWithAnswers = quiz.map((question, index) => {
-        const { options, ...rest } = question;
         return {
-          ...rest,
+          ...question,
           user_answer: answers[index]
         };
       });
       closeModal();
-      const startQuizBtn = document.getElementById('start-quiz-btn');
-      startQuizBtn.style.display = 'none';
-      startQuizBtn.disabled = true;
-      
-      subChapterQuizCompleted[currentSubChapter] = true;
-      unlockNextSubChapter(currentSubChapter);
-      currentSubChapter += 1;
+
+      const chatBox = document.getElementById('chat-box');
+      const botMsg = document.createElement('div');
+      botMsg.classList.add('message', 'bot-message');
+      botMsg.innerHTML = `<strong>Bot:</strong> <span class="loading-indicator"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>`;
+      chatBox.appendChild(botMsg);
+
       try {
         const response = await fetch("/submit-answer", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                answers: quizWithAnswers
+                answers: quizWithAnswers,
+                chapter: chapterNumber,
+                subchapter: currentSubChapter
             })
         });
 
@@ -721,31 +711,40 @@
             console.error("Failed to submit quiz:", response.statusText);
             return;
         }
-        const chatBox = document.getElementById('chat-box');
 
-        const botMsg = document.createElement('div');
-        botMsg.classList.add('message', 'bot-message');
-        botMsg.innerHTML = `<strong>Bot:</strong> `;
-        chatBox.appendChild(botMsg);
+
+        
+
+        
+        
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let done = false;
         let accumulatedText = '';
+        let loadingRemoved = false;
         while (!done) {
             const { value, done: doneReading } = await reader.read();
             done = doneReading;
             const chunk = decoder.decode(value, { stream: !done });
+            if (!loadingRemoved) {
+              botMsg.innerHTML = `<strong>Bot:</strong> `;
+              loadingRemoved = true;
+            }
             accumulatedText += chunk;
             botMsg.innerHTML = `<strong>Bot:</strong> ` + formatText(accumulatedText);
             chatBox.scrollTop = chatBox.scrollHeight;
           }
           botMsg.innerHTML = `<strong>Bot:</strong> ` + formatText(accumulatedText);
+          chatBox.appendChild(botMsg);
       } catch (error) {
           console.error("Error submitting quiz:", error);
       }
       const submitBtn = document.getElementById('submitQuiz');
       submitBtn.classList.add('fire-effect');
+
+      subChapterQuizCompleted[currentSubChapter] = true;
+      currentSubChapter += 1;
     }
 
     function displayResultsInDropdown(data) {
@@ -779,13 +778,24 @@
       dropdownBanner.classList.remove('show');
     }
 
-    function unlockNextSubChapter(index) {
-      const nextIndex = index + 1;
-      const buttonContainer = document.getElementById("buttonContainer");
-      if (nextIndex < buttonContainer.children.length) {
-        const nextBtn = buttonContainer.children[nextIndex];
-        nextBtn.disabled = false;
-        nextBtn.classList.remove("locked");
+    async function unlockNextSubChapterQuiz() {
+      try {
+        const response = await fetch("/get-next-quiz", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                subchapter: currentSubChapter
+            })
+        });
+
+        if (!response.ok) {
+            console.error("Failed to submit quiz:", response.statusText);
+            return;
+        }
+
+        quiz = await response.json();
+      }  catch (error) {
+          console.error("Error getting next quiz:", error);
       }
     }
 

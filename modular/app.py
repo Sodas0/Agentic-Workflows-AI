@@ -31,10 +31,8 @@ import json
 
 from datetime import datetime
 
-from flask_session import Session
+import data
 
-# 1) Import quiz tool:
-from tools import evaluate_quiz_answers
 
 answers = []  # Store user quiz answers in memory (global list)
 
@@ -134,23 +132,26 @@ def serve_chapter(chapter_number):
     """
 
     idx = chapter_number - 1
+    
     if idx < 0 or idx >= len(sub_chapter):
         return f"Chapter {chapter_number} not found.", 404
+    
     user_code = session.get("user_code")
     session["user_id"] = thread_id + str(user_code)
-    print("Current session: ", session["user_id"])
+
+    button_count = sub_chapter[idx]-1
     
     if "user_id" not in session:
         print("USER ID NOT IN SESSION", session["user_id"])
-
-    button_count = sub_chapter[idx]-1
+    
 
     if "chat_history" not in session:
         print("Chat history not found in session. Initializing...")
         pre_message = (
             f"Introduce yourself and how you hope to help the user. We will be going through chapter {chapter_number}. "
-            f"Summarize briefly the main idea of chapter {chapter_number}.1. Spark interest in the user and prepare them for the first MCQ you will generate. "
-            f"Keep this greeting message concise"
+            f"Summarize briefly the main idea of chapter {chapter_number}, you must reference the text book at all times. Tell the to take the chapter pre quiz on the right side of the screen. "
+            f"Use the results of this quiz to understand the user's knowledge of the chapter. Prepare them for the first sub-section quiz."
+            f"Keep this greeting message concise and true to chapter 6 of the textbook"
         
         )
         session["chat_history"] = []
@@ -162,12 +163,11 @@ def serve_chapter(chapter_number):
                 bot_response = value["messages"][-1].content
 
         # Store in session
-        # print(bot_response)
         session["chat_history"].append({"sender": "bot", "message": bot_response})
         trim_chat_history()
         
-    # print(session["chat_history"])
-    quiz = {}
+
+    
     if request.method == "POST":
         user_question = request.form.get("question", "").strip()
         if user_question:
@@ -181,20 +181,6 @@ def serve_chapter(chapter_number):
             ):
                 for value in event.values():
                     final_response = value["messages"][-1].content
-
-            # Extract JSON for the quiz
-            json_match = re.search(r'```json\s*({.*?})\s*```', final_response, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(1)  # Extract matched JSON part
-                try:
-                    quiz = json.loads(json_str)  # Parse JSON safely
-                    print(quiz)
-                    session["current_quiz"] = json.dumps(quiz)
-                    # Remove extracted quiz from final response
-                    final_response = re.sub(r'```json\s*{.*?}\s*```', '', final_response, flags=re.DOTALL).strip()
-                except json.JSONDecodeError as e:
-                    print(f"Failed to parse JSON: {e}")
-                    quiz = {}
 
             session["chat_history"].append({"sender": "bot", "message": final_response})
             session.modified = True
@@ -217,18 +203,8 @@ def serve_chapter(chapter_number):
             "chapter_viewer.html",
             chapter_number=chapter_number,
             button_count=button_count,
-            chat_history=session["chat_history"],
-            quiz=json.dumps(quiz)  # Pass extracted quiz
+            chat_history=session["chat_history"]
         )
-
-@app.route("/get_current_quiz", methods=["GET"])
-def get_current_quiz():
-    quiz_data = session.get("current_quiz", "{}")  # Default to '{}' to prevent errors
-    try:
-        return jsonify(json.loads(quiz_data))  # Parse string back into JSON object
-    except json.JSONDecodeError as e:
-        print(f"Error decoding session quiz JSON: {e}")
-        return jsonify({})  # Return empty JSON if there's an error
 
 
 @app.route("/home")
@@ -249,13 +225,14 @@ def submit_answers():
     """
     request_data = request.json
     submitted_answers = request_data["answers"]
-    print("quiz ----------------")
-    print(submitted_answers)
-    print("quiz ----------------")
+    current_chapter = request_data["chapter"]
+    current_subchapter = request_data["subchapter"]
 
     prompt = (
         "Evaluate the following quiz answers, according to the given instructions."
-        "After evaluation is done, prepare the user to move onto the next sub-section, only if another sub-section exists. In chapter 6 there is 6.1 6.2 6.3 and 6.4."
+        "After evaluation is done, prepare the user to move onto the next sub-section, only if another sub-section exists. In chapter 6 there is 6.0 6.1 6.2 6.3 and 6.4."
+        f"The user is currently on chapter {current_chapter}.{current_subchapter}."
+        "Provide a summary of the sub-section and engage with the user about its topics to prepare them from the next MCQ quiz. "
         "If no other sub-section exists, congratuate the user on completing the chapter and tell them that you remain open to discussion."
         f"{json.dumps(submitted_answers)}"
     )
@@ -266,7 +243,7 @@ def submit_answers():
     for event in graph.stream({"messages": [("user", prompt)]}, {"configurable":{"thread_id":session["user_id"]}}):
         for value in event.values():
             bot_response = value["messages"][-1].content
-    #print(bot_response)
+
     # Store in session
     session["chat_history"].append({"sender": "bot", "message": bot_response})
     
@@ -276,9 +253,28 @@ def submit_answers():
             yield char
             time.sleep(0.01)
     
-    # Remove "current_quiz" from the session
-    session.pop("current_quiz", None)
+    
     return Response(stream_with_context(generate()), mimetype="text/plain")
 
+@app.route("/get-next-quiz", methods=["POST"]) 
+def get_next_quiz():
+    """
+    Returns the next quiz to be displayed to the user.
+    """
+    request_data = request.json
+    subchapter = request_data["subchapter"]
+
+    if subchapter == 0:
+        return jsonify(data.ch6_pre_quiz)
+
+    try:
+        quiz = getattr(data, f"ch6_{subchapter}_reinforcement", {})
+    except AttributeError:
+        quiz = {}
+    
+    return jsonify(quiz)
+    
+
+
 if __name__ == "__main__":
-    app.run(debug=False)
+    app.run(debug=True)

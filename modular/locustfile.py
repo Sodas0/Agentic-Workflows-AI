@@ -67,8 +67,8 @@ class UserBehavior(HttpUser):
         else:
             print(f"❌ Failed to send follow-up message")
 
-        """Step 7: Click the Home button to officially end session"""
-        self.end_session_with_home_button()
+        """Step 7: Start the quiz"""
+        self.start_quiz()
 
     def end_session_with_home_button(self):
         """Clicks the Home button to finalize the session"""
@@ -83,6 +83,72 @@ class UserBehavior(HttpUser):
 
         """Wait a short time before allowing a new test to start"""
         time.sleep(3)  # Ensures previous session fully ends before restarting
+
+    def start_quiz(self):
+        """Starts the quiz and answers the questions."""
+        message_1 = "I am ready for the quiz."
+        chat_response_1 = self.client.post("/chapter/6", data={"question": message_1}, name="Ready for quiz")
+
+        if chat_response_1.status_code == 200:
+            print(f"✅ Sent follow-up message: {chat_response_1}")
+
+            if self.wait_for_bot_response():
+                print("✅ Bot responded to ready for quiz message")
+            else:
+                print("❌ No bot response received for the ready for quiz message!")
+        else:
+            print(f"❌ Failed to send ready for quiz message")
+
+        print("🎯 Starting quiz...")
+        
+        # Get the current quiz data
+        quiz_response = self.client.get("/get_current_quiz", name="Start Quiz")
+        
+        if quiz_response.status_code == 200:
+            print("✅ Successfully started quiz.")
+            
+            # Parse the JSON response
+            quiz_data = quiz_response.json()
+            quiz = quiz_data.get("quiz", [])
+            
+            # Loop through the questions and answer them
+            quiz_with_answers = []
+            for question_data in quiz:
+                question = question_data.get("question")
+                options = question_data.get("options")
+                correct_answer = question_data.get("answer")
+
+                # Simulate a user answer (e.g., always picking the correct answer or random selection)
+                user_answer = self.simulate_user_answer(options, correct_answer)
+
+                # Create the answer object with question, answer, and user_answer
+                quiz_with_answers.append({
+                    "question": question,
+                    "answer": correct_answer,
+                    "user_answer": user_answer
+                })
+            
+            # Submit the answers to the /submit-answer endpoint
+            self.submit_answers(quiz_with_answers)
+        else:
+            print(f"❌ Failed to fetch quiz (Status: {quiz_response.status_code})")
+
+    def simulate_user_answer(self, options, correct_answer):
+        """Simulate the user answering the question."""
+        # For simplicity, always choose the correct answer or you can use random selection
+        return correct_answer  # Replace with random.choice(options) for random answers
+
+    def submit_answers(self, quiz_with_answers):
+        """Submit the answers to the backend."""
+        # Submit the answers as a JSON object to the /submit-answer endpoint
+        response = self.client.post("/submit-answer", json={"answers": quiz_with_answers})
+        
+        if response.status_code == 200:
+            print("✅ Answers submitted successfully.")
+        else:
+            print(f"❌ Failed to submit answers (Status: {response.status_code})")
+
+        self.end_session_with_home_button()
 
     def extract_bot_message(self, html_response):
         """Extracts the bot's message from the chat response using BeautifulSoup"""
