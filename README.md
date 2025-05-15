@@ -23,11 +23,18 @@ The primary objective of this repository is to:
 
 ---
 
-## 📂 **Repository Structure**
+## **Running the Code**
 
-```plaintext
-|-- langgraphtest/          # Code files for LangChain and LangGraph experimentation
-|-- modular/                # An example of a modular single-agent graph based workflow with two example tools that are easily configurable.
-|-- data/                   # Sample datasets and psychology-related content (should have the pdf files of our textbook)
-|-- docs/                   # Documentation and learning notes (currently empty)
-|-- README.md               # Repository overview (this file)
+Before running the code, navigate to the modular directory and add a file name ".env". Your .env file needs to contain a Qdrant cluster key, a LangChain API key, a name, and four OpenAI keys separated by dashes. Example:
+
+```QDRANT_KEY=your_qdrant_key
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=your_langchain_key
+NAME=your_name
+OPENAI_API_KEYS=key1-key2-key3-key4
+```
+
+
+1. Run the command "pip install -r requirements.txt" to install all necessary requirements.
+2. Naviate to the modular directory by running "cd modular"
+3. Run the application by running "python app.py"
